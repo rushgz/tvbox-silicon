@@ -37,6 +37,7 @@ jobs:
 
       # Saved only when this job succeeds, so the key must not change while a build is still
       # unfinished. The scripts decide what to rebuild from the files they find.
+      # FFmpeg's script caches the xcframework under TVBOX_FFMPEG_CACHE, keyed on its own recipe.
       - name: Restore the runtime build
         uses: actions/cache@v4
         with:
@@ -44,7 +45,8 @@ jobs:
             build/apple-runtime
             build/AppleRuntime/iphoneos
             build/JavaHost
-          key: apple-runtime-ios-v1-${{ hashFiles('Scripts/**', 'Runtime/**', 'Package.swift') }}
+            ffmpeg-cache
+          key: apple-runtime-ios-v2-${{ hashFiles('Scripts/**', 'Runtime/**', 'Package.swift') }}
 
       # The xcode-27 image has cmake, maven and ninja, but not autoconf, which OpenJDK needs to
       # generate its configure script. libffi, capstone and keystone ship their own build files.
@@ -56,6 +58,9 @@ jobs:
         # job-level env block, and the build scripts need a JDK of 17 or newer.
         run: |
           export JAVA_HOME="$JAVA_HOME_21_arm64"
+          # Vendor/FFmpeg/FFmpeg.xcframework is a symlink to this script's output, and the package
+          # refuses to resolve without the binary inside it.
+          TVBOX_FFMPEG_CACHE="$PWD/ffmpeg-cache" Scripts/build-apple-ffmpeg.sh
           Scripts/build-java-host.sh
           Scripts/package-apple-runtime.sh ios
 
@@ -86,7 +91,12 @@ jobs:
             build/apple-runtime
             build/AppleRuntime/iphoneos
             build/JavaHost
-          key: apple-runtime-ios-v1-${{ hashFiles('Scripts/**', 'Runtime/**', 'Package.swift') }}
+            ffmpeg-cache
+          key: apple-runtime-ios-v2-${{ hashFiles('Scripts/**', 'Runtime/**', 'Package.swift') }}
+
+      # The cache holds the xcframework; this only relinks Vendor/FFmpeg/FFmpeg.xcframework to it.
+      - name: Link the FFmpeg xcframework
+        run: TVBOX_FFMPEG_CACHE="$PWD/ffmpeg-cache" Scripts/build-apple-ffmpeg.sh
 
       - name: Install XcodeGen
         run: brew install xcodegen
