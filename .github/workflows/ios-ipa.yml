@@ -44,8 +44,10 @@ jobs:
             build/JavaHost
           key: apple-runtime-ios-${{ hashFiles('Scripts/**', 'Runtime/**', 'Package.swift') }}
 
-      - name: Install XcodeGen
-        run: brew install xcodegen
+      # The xcode-27 image has cmake, maven and ninja, but not autoconf, which OpenJDK needs to
+      # generate its configure script. libffi, capstone and keystone ship their own build files.
+      - name: Install build tools
+        run: brew install autoconf xcodegen
 
       - name: Build the on-device runtime
         if: steps.runtime-cache.outputs.cache-hit != 'true'
