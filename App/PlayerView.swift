@@ -101,6 +101,9 @@ struct PlaybackView: View {
             #endif
         }
         #if os(iOS)
+        // Registers the external-display accessory while the player is on screen (iOS 27): the system only
+        // offers the display to apps that ask for it, and takes it back when the player closes.
+        .background(ExternalDisplaySceneRegistrar().allowsHitTesting(false))
         // On a watch page the rest of the page keeps its own appearance.
         .modifier(PlayerScheme(ownsScreen: watch == nil))
         #else
@@ -118,7 +121,12 @@ struct PlaybackView: View {
         .simultaneousGesture(TapGesture().onEnded { poke() })
         #endif
         #endif
-        .onAppear { startCatalogPlayback(session, channel: channel, store: store); showOnStart() }
+        .onAppear {
+            startCatalogPlayback(session, channel: channel, store: store); showOnStart()
+            #if os(iOS)
+            ExternalDisplay.shared.attach(session.player)
+            #endif
+        }
         #if DEBUG && os(iOS)
         // `-qaWatchFullScreen <seconds>`: a watch page's player goes full screen after that long, for screenshots.
         .task(id: watch != nil) {
@@ -138,6 +146,7 @@ struct PlaybackView: View {
         .onDisappear {
             hideTask?.cancel(); store.cancelEpisodeSelection(); session.stop()
             #if os(iOS)
+            ExternalDisplay.shared.detach(session.player)
             PlayerOrientation.release()
             #endif
         }
@@ -156,7 +165,7 @@ struct PlaybackView: View {
                      + " · drawing: \(session.enhancer.status.upscaling ? "upscaled " : "")\(session.enhancer.status.smoothing ? "smoothed" : session.enhancer.status.active ? "" : "AVKit picture")",
                      session.enhancer.summary]
         #if !os(macOS)
-        if let screen = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.screen {
+        if let screen = UIApplication.shared.appWindowScene?.screen {
             lines.append("screen \(screen.maximumFramesPerSecond) Hz \(Int(screen.nativeBounds.width))×\(Int(screen.nativeBounds.height))")
         }
         #endif
@@ -585,7 +594,7 @@ private struct PlayerSurface: NSViewRepresentable {
     static private var holdsPortrait = false
 
     static func set(landscape: Bool) {
-        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
+        guard let scene = UIApplication.shared.appWindowScene else { return }
         mask = landscape ? .landscape : holdsPortrait ? .portrait : .allButUpsideDown
         var controller = scene.keyWindow?.rootViewController
         while let next = controller?.presentedViewController { controller = next }
