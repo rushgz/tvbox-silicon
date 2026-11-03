@@ -52,13 +52,20 @@ jobs:
           path: build/AppleRuntime/iphoneos
           key: apple-runtime-iphoneos-packaged-v1
 
+      # FFmpeg's own key never changes: its script already rebuilds when its recipe changes, so the
+      # cache must not. It used to share the build tree's key and was thrown away with every script edit.
+      - name: Restore the FFmpeg build
+        uses: actions/cache@v4
+        with:
+          path: ffmpeg-cache
+          key: apple-ffmpeg-v1
+
       - name: Restore the runtime build tree
         uses: actions/cache@v4
         with:
           path: |
             build/apple-runtime
             build/JavaHost
-            ffmpeg-cache
           key: apple-runtime-ios-build-v1-${{ hashFiles('Scripts/**', 'Runtime/**', 'Package.swift') }}
 
       # The xcode-27 image has cmake, maven and ninja, but not autoconf, which OpenJDK needs to
@@ -100,9 +107,10 @@ jobs:
           Scripts/build-java-host.sh
           Scripts/package-apple-runtime.sh ios
 
-      # The packaged runtime alone: the build tree under build/apple-runtime is the OpenJDK
-      # source and object files, which are huge and only useful for resuming the build.
+      # Only when this run built the runtime itself. A runtime taken from runtime_url is already
+      # downloadable where it came from, and the build tree is only useful for resuming a compile.
       - name: Upload the packaged runtime
+        if: steps.packaged.outputs.cache-hit != 'true' && inputs.runtime_url == ''
         uses: actions/upload-artifact@v4
         with:
           name: AppleRuntime-iphoneos
@@ -126,8 +134,13 @@ jobs:
           path: |
             build/apple-runtime
             build/JavaHost
-            ffmpeg-cache
           key: apple-runtime-ios-build-v1-${{ hashFiles('Scripts/**', 'Runtime/**', 'Package.swift') }}
+
+      - name: Restore the FFmpeg build
+        uses: actions/cache@v4
+        with:
+          path: ffmpeg-cache
+          key: apple-ffmpeg-v1
 
       - name: Restore the packaged runtime
         uses: actions/cache@v4
