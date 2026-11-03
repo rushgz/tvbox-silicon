@@ -96,6 +96,17 @@ jobs:
           xcodebuild archive -project TVBox.xcodeproj -scheme TVBox-iOS -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/TVBox.xcarchive" -skipMacroValidation "${SIGN[@]}"
 
+      # TrollStore installs an IPA whose .app carries no signature, which needs no certificate.
+      - name: Pack an unsigned IPA
+        if: steps.signing.outputs.signed != 'true'
+        run: |
+          APP="$RUNNER_TEMP/TVBox.xcarchive/Products/Applications"
+          STAGE="$RUNNER_TEMP/ipa/Payload"
+          mkdir -p "$STAGE"
+          cp -R "$APP"/*.app "$STAGE/"
+          (cd "$RUNNER_TEMP/ipa" && zip -qr -9 TVBox-iOS-unsigned.ipa Payload)
+          rm -rf "$STAGE"
+
       - name: Export the IPA
         if: steps.signing.outputs.signed == 'true'
         run: |
