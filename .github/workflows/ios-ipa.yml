@@ -59,6 +59,16 @@ jobs:
           Scripts/build-java-host.sh
           Scripts/package-apple-runtime.sh ios
 
+      # The packaged runtime alone: the build tree under build/apple-runtime is the OpenJDK
+      # source and object files, which are huge and only useful for resuming the build.
+      - name: Upload the packaged runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: AppleRuntime-iphoneos
+          path: build/AppleRuntime/iphoneos
+          if-no-files-found: error
+          retention-days: 14
+
   ipa:
     needs: runtime
     runs-on: xcode-27
