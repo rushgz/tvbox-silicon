@@ -1,0 +1,135 @@
+name: iOS IPA
+
+# Builds the on-device Java runtime from source, then archives TVBox-iOS and exports an IPA.
+# The runtime build (OpenJDK Zero, libffi, Unicorn, capstone, keystone) takes several hours the
+# first time and is cached afterwards, keyed on the scripts, patches and pinned revisions.
+#
+# Signing needs three repository secrets, all base64 encoded:
+#   IOS_CERTIFICATE        a distribution .p12
+#   IOS_CERTIFICATE_PASSWORD
+#   IOS_PROVISIONING_PROFILE  the matching .mobileprovision
+# Without them the workflow still builds and uploads an unsigned .xcarchive.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'App/**'
+      - 'Sources/**'
+      - 'Packages/**'
+      - 'Runtime/**'
+      - 'Scripts/**'
+      - 'project.yml'
+      - 'Package.swift'
+      - '.github/workflows/ios-ipa.yml'
+
+jobs:
+  ipa:
+    runs-on: xcode-27
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Cache the on-device runtime
+        id: runtime-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/apple-runtime
+            build/AppleRuntime/iphoneos
+            build/JavaHost
+          key: apple-runtime-ios-${{ hashFiles('Scripts/**', 'Runtime/**', 'Package.swift') }}
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build the on-device runtime
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        # JAVA_HOME_21_arm64 is set by the runner image. The env context can't be read from a
+        # job-level env block, and the build scripts need a JDK of 17 or newer.
+        run: |
+          export JAVA_HOME="$JAVA_HOME_21_arm64"
+          Scripts/build-java-host.sh
+          Scripts/package-apple-runtime.sh ios
+
+      - name: Generate the Xcode project
+        run: xcodegen generate
+
+      - name: Install the signing certificate
+        id: signing
+        env:
+          IOS_CERTIFICATE: ${{ secrets.IOS_CERTIFICATE }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+        run: |
+          if [ -z "$IOS_CERTIFICATE" ] || [ -z "$IOS_PROVISIONING_PROFILE" ]; then
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "No signing secrets; exporting an unsigned archive."
+            exit 0
+          fi
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          echo "$IOS_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$KEYCHAIN" -P "$IOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$IOS_PROVISIONING_PROFILE" | base64 --decode > "$RUNNER_TEMP/profile.mobileprovision"
+          UUID="$(security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" | plutil -extract UUID raw -)"
+          cp "$RUNNER_TEMP/profile.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+          echo "profile=$UUID" >> "$GITHUB_OUTPUT"
+
+      - name: Archive
+        run: |
+          SIGN=(CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=-)
+          if [ "${{ steps.signing.outputs.signed }}" = "true" ]; then
+            SIGN=(CODE_SIGN_STYLE=Manual "PROVISIONING_PROFILE_SPECIFIER=${{ steps.signing.outputs.profile }}")
+          fi
+          xcodebuild archive -project TVBox.xcodeproj -scheme TVBox-iOS -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/TVBox.xcarchive" -skipMacroValidation "${SIGN[@]}"
+
+      # TrollStore installs an IPA whose .app carries no signature, which needs no certificate.
+      - name: Pack an unsigned IPA
+        if: steps.signing.outputs.signed != 'true'
+        run: |
+          APP="$RUNNER_TEMP/TVBox.xcarchive/Products/Applications"
+          STAGE="$RUNNER_TEMP/ipa/Payload"
+          mkdir -p "$STAGE"
+          cp -R "$APP"/*.app "$STAGE/"
+          (cd "$RUNNER_TEMP/ipa" && zip -qr -9 TVBox-iOS-unsigned.ipa Payload)
+          rm -rf "$STAGE"
+
+      - name: Export the IPA
+        if: steps.signing.outputs.signed == 'true'
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>development</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>provisioningProfiles</key><dict>
+              <key>com.tvbox.yingxia.ios</key><string>${{ steps.signing.outputs.profile }}</string>
+            </dict>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/TVBox.xcarchive" \
+            -exportPath "$RUNNER_TEMP/ipa" -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
+
+      - name: Upload the build
+        uses: actions/upload-artifact@v4
+        with:
+          name: TVBox-iOS
+          path: |
+            ${{ runner.temp }}/ipa/*.ipa
+            ${{ runner.temp }}/TVBox.xcarchive
+          if-no-files-found: error
+          retention-days: 14
