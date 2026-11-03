@@ -63,15 +63,20 @@ targets:
     sources:
       - path: App
       - path: Config/macOS/Assets.xcassets
+      # Built locally by Scripts/build-universal-hosts.sh and gitignored, so a checkout that only
+      # builds iOS or tvOS doesn't have them. Optional keeps spec generation from failing there.
       - path: build/ScriptHost
         type: folder
         buildPhase: resources
+        optional: true
       - path: build/PythonHost
         type: folder
         buildPhase: resources
+        optional: true
       - path: build/JavaHost
         type: folder
         buildPhase: resources
+        optional: true
     preBuildScripts:
       - name: Embed Dandanplay API configuration
         script: '"$SRCROOT/Scripts/embed-dandanplay-config.py"'
