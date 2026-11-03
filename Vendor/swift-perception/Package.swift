@@ -1,0 +1,82 @@
+// swift-tools-version: 6.4
+
+import CompilerPluginSupport
+import PackageDescription
+
+let package = Package(
+  name: "swift-perception",
+  platforms: [
+    .iOS(.v15),
+    .macOS(.v12),
+    .tvOS(.v15),
+    .watchOS(.v9),
+  ],
+  products: [
+    .library(
+      name: "PerceptionCore",
+      targets: ["PerceptionCore"]
+    ),
+    .library(
+      name: "Perception",
+      targets: ["Perception"]
+    ),
+  ],
+  dependencies: [
+    .package(url: "https://github.com/pointfreeco/swift-macro-testing", from: "0.6.0"),
+    .package(url: "https://github.com/pointfreeco/swift-issue-reporting", from: "2.1.0"),
+    .package(url: "https://github.com/swiftlang/swift-syntax", "509.0.0"..<"605.0.0"),
+  ],
+  targets: [
+    .target(
+      name: "Perception",
+      dependencies: [
+        "PerceptionCore",
+        "PerceptionMacros",
+      ]
+    ),
+    .target(
+      name: "PerceptionCore",
+      dependencies: [
+        .product(name: "IssueReporting", package: "swift-issue-reporting")
+      ]
+    ),
+    .macro(
+      name: "PerceptionMacros",
+      dependencies: [
+        .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+        .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+      ]
+    ),
+    .testTarget(
+      name: "PerceptionTests",
+      dependencies: ["Perception"]
+    ),
+    .testTarget(
+      name: "PerceptionMacrosTests",
+      dependencies: [
+        "PerceptionMacros",
+        .product(name: "MacroTesting", package: "swift-macro-testing"),
+      ]
+    ),
+  ],
+  swiftLanguageModes: [.v5]
+)
+
+#if !os(Windows)
+  // Add the documentation compiler plugin if possible
+  package.dependencies.append(
+    .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0")
+  )
+#endif
+
+for target in package.targets {
+  target.swiftSettings = target.swiftSettings ?? []
+  target.swiftSettings?.append(contentsOf: [
+    .enableUpcomingFeature("ExistentialAny"),
+    .enableUpcomingFeature("ImmutableWeakCaptures"),
+    .enableUpcomingFeature("InferIsolatedConformances"),
+    .enableUpcomingFeature("InternalImportsByDefault"),
+    .enableUpcomingFeature("MemberImportVisibility"),
+    .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+  ])
+}

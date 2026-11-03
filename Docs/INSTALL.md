@@ -6,7 +6,7 @@ We recommend **[cider](https://github.com/Battzz/cider-cli)**, a free command-li
 
 ## What you need
 
-- **iPhone or iPad** with iOS / iPadOS 17 or later, or **Apple TV** with tvOS 17 or later.
+- **iPhone or iPad** with iOS / iPadOS 16 or later, or **Apple TV** with tvOS 17 or later.
 - An **Apple account**. A free account works.
 - A **Mac, Windows or Linux computer** for iPhone and iPad. For **Apple TV you need a Mac** on the same local network as the TV: installing to Apple TV over Wi-Fi isn't possible from Windows or Linux.
 - The **Yingxia IPA** for your device:

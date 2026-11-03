@@ -1,5 +1,5 @@
+import Perception
 import Foundation
-import Observation
 
 /// Catalog identity only: an expiring stream URL or its authorization headers must
 /// never become the address used to resume a saved episode.
@@ -80,7 +80,7 @@ extension PlaybackHistoryEntry {
 
 /// Shared by the library and player, bounded and atomically persisted outside
 /// UserDefaults so a growing history does not hit its size limit.
-@MainActor @Observable public final class PlaybackHistory {
+@MainActor @Perceptible public final class PlaybackHistory {
     public static let shared = PlaybackHistory()
     public static let limit = 200
     public private(set) var entries: [PlaybackHistoryEntry] = []
@@ -89,7 +89,7 @@ extension PlaybackHistoryEntry {
     private let cache: MediaCache
     private let defaults: UserDefaults
     /// Called after the history changes here (not after `adopt`), for iCloud sync.
-    @ObservationIgnored public var onChange: (@MainActor () -> Void)?
+    @PerceptionIgnored public var onChange: (@MainActor () -> Void)?
 
     public init(file: URL? = nil, cache: MediaCache = .shared, defaults: UserDefaults = .standard) {
         self.cache = cache; self.defaults = defaults

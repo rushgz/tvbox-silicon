@@ -1,10 +1,10 @@
+import Perception
 import Foundation
-import Observation
 
 /// The viewer's own source order. While it is on, it replaces the automatic one (`SourceStrategy`):
 /// the Sources page lists sources in it, and search asks sources and lists their matches in it, top first.
 /// Keys are subscription-qualified like `PinnedSources`, so the order survives re-imports.
-@MainActor @Observable public final class SourceOrder {
+@MainActor @Perceptible public final class SourceOrder {
     public var enabled: Bool {
         didSet { defaults.set(enabled, forKey: "sourceOrder.enabled"); revision += 1; onChange?() }
     }
@@ -13,7 +13,7 @@ import Observation
     public private(set) var revision = 0
     private let defaults: UserDefaults
     /// Called after the list changes here (not after `adopt`), for iCloud sync.
-    @ObservationIgnored public var onChange: (@MainActor () -> Void)?
+    @PerceptionIgnored public var onChange: (@MainActor () -> Void)?
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         enabled = defaults.bool(forKey: "sourceOrder.enabled")

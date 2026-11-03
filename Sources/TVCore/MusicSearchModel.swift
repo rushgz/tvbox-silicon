@@ -1,10 +1,10 @@
+import Perception
 import Foundation
-import Observation
 
 /// Music search across the catalogs, for songs, albums or playlists. Typing waits 350 ms before
 /// searching; each catalog answers on its own, and results show as they arrive, merged and
 /// ranked. A newer query cancels the older one, and a late answer never replaces newer results.
-@MainActor @Observable public final class MusicSearchModel {
+@MainActor @Perceptible public final class MusicSearchModel {
     public private(set) var query = ""
     public private(set) var kind: MusicSearchKind = .songs
     public private(set) var results: [MusicTrack] = []

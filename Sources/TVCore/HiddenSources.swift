@@ -1,14 +1,14 @@
+import Perception
 import Foundation
-import Observation
 
 /// Subscription-qualified hides. The same key scheme as `PinnedSources`.
-@MainActor @Observable public final class HiddenSources {
+@MainActor @Perceptible public final class HiddenSources {
     private var keys: [String]
     /// Bumps when a source is hidden or shown, so a cached source row can be reused until then.
     public private(set) var revision = 0
     private let defaults: UserDefaults
     /// Called after the list changes here (not after `adopt`), for iCloud sync.
-    @ObservationIgnored public var onChange: (@MainActor () -> Void)?
+    @PerceptionIgnored public var onChange: (@MainActor () -> Void)?
     private static let storageKey = "hiddenSources.v1"
     private static let builtInRestoreKey = "hiddenSources.builtInRestore.v1"
     private static let autoRestoreKey = "hiddenSources.autoRestore.v1"

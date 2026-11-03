@@ -1,7 +1,8 @@
+import Perception
 import SwiftUI
 import TVCore
 
-@MainActor @Observable final class Store {
+@MainActor @Perceptible final class Store {
     static let defaultURL = "https://raw.githubusercontent.com/qist/tvbox/master/fty.json"
     let searchModel = SearchModel()
     /// Song search and the music player; both outlive the Music page, so a song keeps playing elsewhere in the app.
@@ -48,7 +49,7 @@ import TVCore
         didSet { if let channel = playing, let queue = listeningQueue(for: channel) { playing = nil; listen(queue, from: channel) } }
     }
     /// Set while a listening source's episode goes to the video player on purpose.
-    @ObservationIgnored private var playsAsVideo = false
+    @PerceptionIgnored private var playsAsVideo = false
     /// The videos whose iPhone watch page is on screen (`PlaybackHistoryContext.id`): their episodes play at the top
     /// of the page instead of in the full-screen player.
     var watchPageScopes: Set<String> = []
@@ -77,12 +78,12 @@ import TVCore
     /// Rebuilt source rows are expensive (every source is classified and copied) and Watch Now reads
     /// them many times while drawing one frame. The stamp is the inputs, so a later frame reuses the row.
     /// Not observed: views fill these while drawing, and a write would draw every reader again.
-    @ObservationIgnored private var siteListStamp = ""
-    @ObservationIgnored private var cloudDrivesObserver: NSObjectProtocol?
-    @ObservationIgnored private var automaticCache: [Site]?
-    @ObservationIgnored private var orderedCache: [Site]?
-    @ObservationIgnored private var recommendationCache: [Site]?
-    @ObservationIgnored private var groupsCache: [Bool: [SourceGroup]] = [:]
+    @PerceptionIgnored private var siteListStamp = ""
+    @PerceptionIgnored private var cloudDrivesObserver: NSObjectProtocol?
+    @PerceptionIgnored private var automaticCache: [Site]?
+    @PerceptionIgnored private var orderedCache: [Site]?
+    @PerceptionIgnored private var recommendationCache: [Site]?
+    @PerceptionIgnored private var groupsCache: [Bool: [SourceGroup]] = [:]
     /// What the cached rows were built from: the merged subscription, which subscriptions are on, and the viewer's pins, hides, and order.
     private func currentSiteListStamp() -> String {
         let imported = subscription?.importedAt.timeIntervalSince1970 ?? 0

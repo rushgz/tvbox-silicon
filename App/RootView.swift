@@ -1,3 +1,4 @@
+import Perception
 import SwiftUI
 import TVCore
 
@@ -518,9 +519,9 @@ private struct RouteStack<Root: View>: View {
 }
 
 /// A stack's path, and the one `openRoute` that pushes onto it for the stack's whole life.
-@MainActor @Observable private final class RoutePath {
+@MainActor @Perceptible private final class RoutePath {
     var path = NavigationPath()
-    @ObservationIgnored private(set) lazy var opener = RouteOpener { [weak self] in self?.path.append($0) }
+    @PerceptionIgnored private(set) lazy var opener = RouteOpener { [weak self] in self?.path.append($0) }
 }
 
 /// Pushes a page onto a stack's path (`openRoute`). An object rather than a closure: SwiftUI can't compare closures,

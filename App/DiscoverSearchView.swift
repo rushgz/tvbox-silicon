@@ -1,3 +1,4 @@
+import Perception
 import SwiftUI
 import TVCore
 
@@ -291,7 +292,7 @@ struct DiscoverSearchGroup {
     var count: Int { items.count + people.count }
     var hasMore: Bool { page < totalPages }
 }
-@MainActor @Observable final class DiscoverSearchModel {
+@MainActor @Perceptible final class DiscoverSearchModel {
     var groups: [TMDBCatalog.SearchKind: DiscoverSearchGroup] = [:]
     var loading = false
     var failed = false

@@ -1,9 +1,10 @@
+import Perception
 import SwiftUI
 import TVCore
 
 /// Messages the website publishes for the people using the app (`website/public/messages.json`), each
 /// shown once in an alert. Unlike release notes they also reach App Store and TestFlight builds.
-@MainActor @Observable final class Announcements {
+@MainActor @Perceptible final class Announcements {
     /// The first message this device hasn't shown; it waits while something else is on screen.
     var current: MessageFeed.Message? { pending.first }
     /// Messages not shown yet; they put a New badge on Messages.

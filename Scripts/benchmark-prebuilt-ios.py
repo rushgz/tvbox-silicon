@@ -101,9 +101,9 @@ static void runJVM(void) {
 
 ''' + source[b:]
 (WORK/'Benchmark.m').write_text(source)
-info=dict(CFBundleIdentifier='com.tvbox.yingxia.PrebuiltBenchmark',CFBundleExecutable='PrebuiltBenchmark',CFBundleName='Prebuilt Benchmark',CFBundleVersion='1',CFBundleShortVersionString='1.0',CFBundlePackageType='APPL',MinimumOSVersion='17.0',UIDeviceFamily=[1],UILaunchScreen={},NSAppTransportSecurity={'NSAllowsArbitraryLoads':True},UIApplicationSceneManifest={'UIApplicationSupportsMultipleScenes':False,'UISceneConfigurations':{'UIWindowSceneSessionRoleApplication':[{'UISceneConfigurationName':'Runtime','UISceneDelegateClassName':'SpikeSceneDelegate'}]}})
+info=dict(CFBundleIdentifier='com.tvbox.yingxia.PrebuiltBenchmark',CFBundleExecutable='PrebuiltBenchmark',CFBundleName='Prebuilt Benchmark',CFBundleVersion='1',CFBundleShortVersionString='1.0',CFBundlePackageType='APPL',MinimumOSVersion='16.0',UIDeviceFamily=[1],UILaunchScreen={},NSAppTransportSecurity={'NSAllowsArbitraryLoads':True},UIApplicationSceneManifest={'UIApplicationSupportsMultipleScenes':False,'UISceneConfigurations':{'UIWindowSceneSessionRoleApplication':[{'UISceneConfigurationName':'Runtime','UISceneDelegateClassName':'SpikeSceneDelegate'}]}})
 (APP/'Info.plist').write_bytes(plistlib.dumps(info))
 sdk=subprocess.check_output(['xcrun','--sdk','iphonesimulator','--show-sdk-path'],text=True).strip()
-subprocess.run(['clang++','-target','arm64-apple-ios17.0-simulator','-isysroot',sdk,'-fobjc-arc','-I',str(OUT/'include'),str(WORK/'Benchmark.m'),str(ROOT/'Runtime/AppleRuntime/Native/AppleRuntime.m'),'-Wl,-force_load,'+str(OUT/'lib/libTVAppleRuntime.a'),'-Wl,-export_dynamic','-lz','-liconv','-framework','UIKit','-framework','Foundation','-framework','Security','-framework','CoreGraphics','-o',str(APP/'PrebuiltBenchmark')],check=True)
+subprocess.run(['clang++','-target','arm64-apple-ios16.0-simulator','-isysroot',sdk,'-fobjc-arc','-I',str(OUT/'include'),str(WORK/'Benchmark.m'),str(ROOT/'Runtime/AppleRuntime/Native/AppleRuntime.m'),'-Wl,-force_load,'+str(OUT/'lib/libTVAppleRuntime.a'),'-Wl,-export_dynamic','-lz','-liconv','-framework','UIKit','-framework','Foundation','-framework','Security','-framework','CoreGraphics','-o',str(APP/'PrebuiltBenchmark')],check=True)
 subprocess.run(['codesign','--force','--sign','-',str(APP)],check=True)
 print(APP)

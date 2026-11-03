@@ -1,12 +1,12 @@
+import Perception
 import Foundation
-import Observation
 
 /// A drive sign-in a plugin is waiting for: Baidu Netdisk or Aliyun Drive, or a drive a Wex-family
 /// plugin signs in to through its own config center (OwnDriveSignIn.java). The plugin signs in itself
 /// and saves the account; it only needs someone to scan its QR code, which this host can't show
 /// in an Android dialog. The plugin runtime leaves the code in the source's session folder
 /// (`login-prompt.json`, see LoginPrompt.java) and the app shows it while the request runs.
-@MainActor @Observable public final class PluginSignIn {
+@MainActor @Perceptible public final class PluginSignIn {
     public static let shared = PluginSignIn()
     nonisolated static let fileName = "login-prompt.json"
     /// Left for the plugin runtime when the viewer signed in on the drive's own page instead (LoginPrompt.java).

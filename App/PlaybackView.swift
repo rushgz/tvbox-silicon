@@ -1,8 +1,9 @@
+import Perception
 import SwiftUI
 import AVKit
 import TVCore
 
-@MainActor @Observable final class PlaybackSession {
+@MainActor @Perceptible final class PlaybackSession {
     /// A queue, so the next episode can wait behind this one and play straight on.
     let player: AVQueuePlayer
     /// Upscaling and 60 fps smoothing, drawn over AVKit's picture when switched on in Settings.

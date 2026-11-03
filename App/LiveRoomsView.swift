@@ -1,3 +1,4 @@
+import Perception
 import SwiftUI
 import TVCore
 
@@ -322,10 +323,10 @@ extension LivePlatform {
 /// A room each built-in platform is showing now, for its card: the busiest room with a cover in the
 /// first of its areas that has one (a signed-out "Following" list is empty), asked again after ten
 /// minutes. The fetch outlives the card's appearance: a slow platform would otherwise never finish.
-@MainActor @Observable final class LivePreviews {
+@MainActor @Perceptible final class LivePreviews {
     static let shared = LivePreviews()
     private(set) var rooms: [LivePlatform: LiveRoom] = [:]
-    @ObservationIgnored private var asked: [LivePlatform: Date] = [:]
+    @PerceptionIgnored private var asked: [LivePlatform: Date] = [:]
 
     func load(_ platform: LivePlatform) {
         if let date = asked[platform], Date.now.timeIntervalSince(date) < 600 { return }

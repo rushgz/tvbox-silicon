@@ -1,5 +1,5 @@
+import Perception
 import Foundation
-import Observation
 
 /// Where a download came from: enough to resolve the episode again when its links expire.
 public struct DownloadSource: Codable, Hashable, Sendable {
@@ -69,7 +69,7 @@ public struct DownloadItem: Codable, Identifiable, Hashable, Sendable {
 /// Downloaded episodes and the queue that fetches them. A fixed number of downloads run at once
 /// (`simultaneous`); the rest wait in order. Progress survives pausing, quitting and expired links:
 /// each download keeps its finished pieces on disk and resolves the episode again when needed.
-@MainActor @Observable public final class DownloadLibrary {
+@MainActor @Perceptible public final class DownloadLibrary {
     public static let shared = DownloadLibrary()
     /// Addresses of downloaded episodes for the player: `tvbox-download://<id>`.
     public static let scheme = "tvbox-download"
@@ -87,7 +87,7 @@ public struct DownloadItem: Codable, Identifiable, Hashable, Sendable {
     /// How many downloads run at once, 1 to 4.
     public var simultaneous: Int {
         didSet {
-            // @Observable runs didSet again for an assignment made inside it, so only assign when clamping.
+            // @Perceptible runs didSet again for an assignment made inside it, so only assign when clamping.
             let clamped = min(max(simultaneous, 1), 4)
             guard clamped == simultaneous else { simultaneous = clamped; return }
             defaults.set(simultaneous, forKey: "downloadsSimultaneous")
@@ -95,17 +95,17 @@ public struct DownloadItem: Codable, Identifiable, Hashable, Sendable {
         }
     }
     /// Resolves an episode to its current media address; set by the app, which knows the sources.
-    @ObservationIgnored public var resolver: (@MainActor @Sendable (DownloadItem) async throws -> Channel)?
+    @PerceptionIgnored public var resolver: (@MainActor @Sendable (DownloadItem) async throws -> Channel)?
     /// Called each time a download starts running. The iOS app uses it to keep downloads going in the background.
-    @ObservationIgnored public var onStart: (@MainActor () -> Void)?
+    @PerceptionIgnored public var onStart: (@MainActor () -> Void)?
 
     public let root: URL
-    @ObservationIgnored private let defaults: UserDefaults
-    @ObservationIgnored private let session: URLSession
-    @ObservationIgnored private var running: [String: (run: UUID, task: Task<Void, Never>, meter: DownloadMeter)] = [:]
-    @ObservationIgnored private var samples: [String: (date: Date, bytes: Int64)] = [:]
-    @ObservationIgnored private var ticker: Task<Void, Never>?
-    @ObservationIgnored private var savedAt = Date.distantPast
+    @PerceptionIgnored private let defaults: UserDefaults
+    @PerceptionIgnored private let session: URLSession
+    @PerceptionIgnored private var running: [String: (run: UUID, task: Task<Void, Never>, meter: DownloadMeter)] = [:]
+    @PerceptionIgnored private var samples: [String: (date: Date, bytes: Int64)] = [:]
+    @PerceptionIgnored private var ticker: Task<Void, Never>?
+    @PerceptionIgnored private var savedAt = Date.distantPast
 
     public init(root: URL = DownloadLibrary.defaultRoot, defaults: UserDefaults = .standard) {
         self.root = root; self.defaults = defaults

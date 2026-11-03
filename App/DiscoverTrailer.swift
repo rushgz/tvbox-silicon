@@ -1,3 +1,4 @@
+import Perception
 import SwiftUI
 import TVCore
 @preconcurrency import AVFoundation
@@ -72,7 +73,7 @@ actor DiscoverTrailerResolver {
     private struct Format: Decodable { let url: String; let mimeType: String; let displayName: Name }
 }
 
-@MainActor @Observable private final class DiscoverTrailerPlayback {
+@MainActor @Perceptible private final class DiscoverTrailerPlayback {
     let player = AVQueuePlayer()
     var ready = false
     private var looper: AVPlayerLooper?

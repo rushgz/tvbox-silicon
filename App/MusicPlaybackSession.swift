@@ -1,3 +1,4 @@
+import Perception
 import AVFoundation
 import SwiftUI
 import TVCore
@@ -11,7 +12,7 @@ typealias MusicTrack = TVCore.MusicTrack
 /// length. A song no channel can play is skipped, until several in a row fail. Songs that play go
 /// into the history, and where listening is gets saved, to continue later.
 /// A new song, or Stop, cancels everything for the old one, so a late answer never plays.
-@MainActor @Observable final class MusicPlaybackSession {
+@MainActor @Perceptible final class MusicPlaybackSession {
     enum Phase: Equatable {
         case idle
         /// Finding a channel.
@@ -83,12 +84,12 @@ typealias MusicTrack = TVCore.MusicTrack
     // MARK: TVBox episodes (#289)
 
     /// Turns a TVBox episode into its stream through its source; set by the store, which has the subscriptions.
-    @ObservationIgnored var resolveSource: ((MusicSourceEpisode) async throws -> Channel)?
+    @PerceptionIgnored var resolveSource: ((MusicSourceEpisode) async throws -> Channel)?
     /// Opens a TVBox episode in the video player at a second: its stream has a picture (`true`), or this player
     /// can't play it and the video player, with more ways to play, might. The last is whether Now Playing was open.
-    @ObservationIgnored var handOffSource: ((Channel, Double, Bool, Bool) -> Void)?
+    @PerceptionIgnored var handOffSource: ((Channel, Double, Bool, Bool) -> Void)?
     /// Saves where a TVBox episode is under its book, as the video player saves a series.
-    @ObservationIgnored var recordSource: ((MusicSourceEpisode, Double, Double) -> Void)?
+    @PerceptionIgnored var recordSource: ((MusicSourceEpisode, Double, Double) -> Void)?
     /// The stream of the TVBox episode playing.
     private(set) var sourceStream: Channel?
     /// The first episode's stream, which the page that started the queue already resolved.

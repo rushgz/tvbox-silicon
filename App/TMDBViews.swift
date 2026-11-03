@@ -1,10 +1,11 @@
+import Perception
 import ImageIO
 import SwiftUI
 import TVCore
 
 /// A video page's TMDB details (`TMDBMatch`): what this device already knows shows at once; otherwise the lookup runs
 /// while the page is open and its steps show, since a title nobody opened before takes some seconds.
-@MainActor @Observable final class TMDBLookup {
+@MainActor @Perceptible final class TMDBLookup {
     enum Phase: Equatable {
         case idle, looking, matched, ambiguous, notFound, failed, off
     }

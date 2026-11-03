@@ -1,8 +1,9 @@
+import Perception
 import SwiftUI
 import TVCore
 
 /// Catalog browsing is independent of the subscription; opening a title can search the viewer's sources.
-@MainActor @Observable private final class DiscoverModel {
+@MainActor @Perceptible private final class DiscoverModel {
     private(set) var pages: [TMDBCatalog.Feed: TMDBCatalog.Page] = [:]
     private(set) var failures = Set<TMDBCatalog.Feed>()
     private(set) var collections: TMDBCatalog.Collections?
@@ -419,7 +420,7 @@ struct DiscoverView: View {
 
 /// Interaction state is read only by the hero and its background. A scroll offset or page
 /// change must not re-evaluate all of the poster rails and their navigation destinations.
-@MainActor @Observable private final class DiscoverHeroState {
+@MainActor @Perceptible private final class DiscoverHeroState {
     var id: String?
     var scrollY: CGFloat = 0
     var details: [String: TMDBMatch.Details] = [:]

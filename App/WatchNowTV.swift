@@ -1,3 +1,4 @@
+import Perception
 import SwiftUI
 import TVCore
 
@@ -500,7 +501,7 @@ struct WatchNowTVCategoryRail: View {
 
 /// The hero's selection and artwork, read only by the hero and the backdrop: scrolling and paging must not evaluate the
 /// rows again.
-@MainActor @Observable final class WatchNowHeroState {
+@MainActor @Perceptible final class WatchNowHeroState {
     var selected: String?
     var scrollY: CGFloat = 0
     var paints: [String: DiscoverPaint] = [:]
@@ -558,11 +559,11 @@ struct WatchNowTVCategoryRail: View {
 
 /// Watch Now's category rows, kept for the app's life. A row older than ten minutes loads again when it comes on
 /// screen, showing the old covers until the new ones arrive; a load runs to the end even if the row scrolls away. Apple TV and iPhone share it.
-@MainActor @Observable final class WatchNowRows {
+@MainActor @Perceptible final class WatchNowRows {
     static let shared = WatchNowRows()
     struct Row { var videos: [Video]; var date: Date }
     private(set) var rows: [String: Row] = [:]
-    @ObservationIgnored private var loading: Set<String> = []
+    @PerceptionIgnored private var loading: Set<String> = []
 
     static func key(category: String, client: CatalogClient) -> String { "\(client.origin)|\(client.site.key)|\(category)" }
 

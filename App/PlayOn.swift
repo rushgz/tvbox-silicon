@@ -1,3 +1,4 @@
+import Perception
 import SwiftUI
 import TVCore
 #if os(iOS) || os(tvOS)
@@ -21,14 +22,14 @@ import AVKit
 #if os(tvOS) || os(macOS)
 /// Plays what Yingxia on another device sends (PlayOn): a catalog episode through this device's own copy
 /// of its source, so Next and the episode list work here too, else the stream as the sender had it.
-@MainActor @Observable final class PlayOnController {
+@MainActor @Perceptible final class PlayOnController {
     static let shared = PlayOnController()
     static let key = "playOnReceives"
     static var enabled: Bool { UserDefaults.standard.object(forKey: key) as? Bool ?? true }
     /// What is being opened and who sent it, shown until the player opens.
     private(set) var incoming: (title: String, sender: String)?
-    @ObservationIgnored private weak var store: Store?
-    @ObservationIgnored private var task: Task<Void, Never>?
+    @PerceptionIgnored private weak var store: Store?
+    @PerceptionIgnored private var task: Task<Void, Never>?
 
     func start(_ store: Store) {
         self.store = store

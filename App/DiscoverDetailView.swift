@@ -1,3 +1,4 @@
+import Perception
 import SwiftUI
 import TVCore
 import AVKit
@@ -407,7 +408,7 @@ struct DiscoverDetailView: View {
     }
 }
 
-@MainActor @Observable private final class DiscoverDetailModel {
+@MainActor @Perceptible private final class DiscoverDetailModel {
     var details: TMDBMatch.Details?
     var paint: DiscoverPaint?
     var loading = true

@@ -1,3 +1,4 @@
+import Perception
 import SwiftUI
 import TVCore
 import UniformTypeIdentifiers
@@ -1959,7 +1960,7 @@ private struct TVPlayURLPage: View {
 // MARK: Contributors
 
 /// The last 30 days' contributors that Settings lists, kept between launches and asked for at most every six hours.
-@MainActor @Observable final class ContributorList {
+@MainActor @Perceptible final class ContributorList {
     static let shared = ContributorList()
     /// At most this many rows; the list is ranked, so the rest have the fewest commits.
     static let shown = 20

@@ -1,3 +1,4 @@
+import Perception
 import SwiftUI
 import TVCore
 import UniformTypeIdentifiers
@@ -640,7 +641,7 @@ struct MusicScrubber: View {
 
 /// The LX Music custom sources in Music Settings: add one by address (or from a file on iPhone, iPad and
 /// Mac), turn each on or off, remove it. Adding runs the script once to read which catalogs it covers.
-@MainActor @Observable final class MusicLXSourcesModel {
+@MainActor @Perceptible final class MusicLXSourcesModel {
     private(set) var sources: [LXSource] = LXSourceLibrary.shared.sources
     private(set) var busy = false
     var message: String?
@@ -781,7 +782,7 @@ struct MusicLXSourcesSection: View {
 /// The music extensions in Music Settings (Listenify-format scripts such as allfm.js): add one by address (or
 /// from a file on iPhone, iPad and Mac), turn each on or off, remove it. Their lists show on the Music page,
 /// which reloads their shelves after a change; their songs show in Music search.
-@MainActor @Observable final class MusicExtensionsModel {
+@MainActor @Perceptible final class MusicExtensionsModel {
     private(set) var items: [MusicExtension] = MusicExtensionLibrary.shared.extensions
     private(set) var busy = false
     var message: String?

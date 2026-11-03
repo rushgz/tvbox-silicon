@@ -1,9 +1,10 @@
+import Perception
 import SwiftUI
 import AVKit
 import TVCore
 import UniformTypeIdentifiers
 
-@MainActor @Observable final class CatalogDanmakuModel {
+@MainActor @Perceptible final class CatalogDanmakuModel {
     private(set) var comments: [CatalogDanmakuComment] = []
     private(set) var track = ""
     private(set) var revision = UUID()
@@ -38,8 +39,8 @@ import UniformTypeIdentifiers
     private(set) var fromCache = false
     var context: PlaybackHistoryContext? { automaticContext }
 
-    @ObservationIgnored private var renderedKey: String?
-    @ObservationIgnored private var rendered: [Danmaku] = []
+    @PerceptionIgnored private var renderedKey: String?
+    @PerceptionIgnored private var rendered: [Danmaku] = []
     var renderedRevision: String { "\(revision):\(offset)" }
     var renderedComments: [Danmaku] {
         let key = renderedRevision

@@ -4,7 +4,7 @@ cd "$(dirname "$0")/.."
 ROOT="$PWD"
 TARGET="${1:-ios-simulator}"
 case "$TARGET" in
-  ios-simulator) SDK=iphonesimulator; CONF=ios-aarch64-zero-simulator; TRIPLE=arm64-apple-ios17.0-simulator; FAMILY=1 ;;
+  ios-simulator) SDK=iphonesimulator; CONF=ios-aarch64-zero-simulator; TRIPLE=arm64-apple-ios16.0-simulator; FAMILY=1 ;;
   tvos-simulator) SDK=appletvsimulator; CONF=tvos-aarch64-zero-simulator; TRIPLE=arm64-apple-tvos17.0-simulator; FAMILY=3 ;;
   *) echo "Usage: $0 [ios-simulator|tvos-simulator]" >&2; exit 2 ;;
 esac
@@ -46,12 +46,12 @@ xcrun --sdk "$SDK" clang++ -target "$TRIPLE" -isysroot "$(xcrun --sdk "$SDK" --s
   -fobjc-arc -I "$BOOT/include" -I "$BOOT/include/darwin" Runtime/AppleRuntime/Spike/main.m \
   "${LINK[@]}" "$FFI" -lz -liconv -framework UIKit -framework Foundation -framework Security -framework CoreGraphics \
   -Wl,-export_dynamic -o "$APP/RuntimeSpike"
-python3 - "$APP" "$FAMILY" <<'PY'
+python3 - "$APP" "$FAMILY" "$TRIPLE" <<'PY'
 import pathlib, plistlib, sys
 app = pathlib.Path(sys.argv[1])
 info = dict(CFBundleIdentifier='com.tvbox.yingxia.RuntimeSpike', CFBundleExecutable='RuntimeSpike',
             CFBundleName='Runtime Spike', CFBundleVersion='1', CFBundleShortVersionString='1.0',
-            CFBundlePackageType='APPL', MinimumOSVersion='17.0', UIDeviceFamily=[int(sys.argv[2])],
+            CFBundlePackageType='APPL', MinimumOSVersion=sys.argv[3].removesuffix('-simulator').split('-')[-1], UIDeviceFamily=[int(sys.argv[2])],
             UILaunchScreen={}, UIApplicationSceneManifest={
                 'UIApplicationSupportsMultipleScenes': False,
                 'UISceneConfigurations': {'UIWindowSceneSessionRoleApplication': [{

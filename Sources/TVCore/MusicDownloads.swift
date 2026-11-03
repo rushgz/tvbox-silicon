@@ -1,6 +1,6 @@
+import Perception
 import CryptoKit
 import Foundation
-import Observation
 
 /// A song kept for listening offline: the audio from the channel that played it best, with its
 /// lyrics and its cover.
@@ -44,7 +44,7 @@ public struct MusicDownloadedCollection: Codable, Identifiable, Hashable, Sendab
 /// Downloaded songs and the queue that fetches them, beside the episode downloads. Each song is
 /// resolved as playing it would be (best channel, lossless first) and saved by the same transfer
 /// as an episode, so a stopped download continues and an expired link is resolved again.
-@MainActor @Observable public final class MusicDownloadLibrary {
+@MainActor @Perceptible public final class MusicDownloadLibrary {
     public static let shared = MusicDownloadLibrary()
     /// A song is one file, so a couple at a time is enough to keep the connection busy.
     static let simultaneous = 2
@@ -53,12 +53,12 @@ public struct MusicDownloadedCollection: Codable, Identifiable, Hashable, Sendab
     /// Albums and playlists downloaded from their pages, most recent first.
     public private(set) var collections: [MusicDownloadedCollection] = []
     public let root: URL
-    @ObservationIgnored private let session: URLSession
-    @ObservationIgnored private var running: [String: (run: UUID, task: Task<Void, Never>, meter: DownloadMeter)] = [:]
-    @ObservationIgnored private var ticker: Task<Void, Never>?
-    @ObservationIgnored private var savedAt = Date.distantPast
+    @PerceptionIgnored private let session: URLSession
+    @PerceptionIgnored private var running: [String: (run: UUID, task: Task<Void, Never>, meter: DownloadMeter)] = [:]
+    @PerceptionIgnored private var ticker: Task<Void, Never>?
+    @PerceptionIgnored private var savedAt = Date.distantPast
     /// Called each time a download starts running. The iOS app uses it to keep downloads going in the background.
-    @ObservationIgnored public var onStart: (@MainActor () -> Void)?
+    @PerceptionIgnored public var onStart: (@MainActor () -> Void)?
 
     public init(root: URL = MusicDownloadLibrary.defaultRoot) {
         self.root = root
