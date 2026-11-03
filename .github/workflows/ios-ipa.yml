@@ -28,8 +28,6 @@ jobs:
   ipa:
     runs-on: xcode-27
     timeout-minutes: 360
-    env:
-      JAVA_HOME: ${{ env.JAVA_HOME_21_arm64 }}
     steps:
       - uses: actions/checkout@v4
 
@@ -51,7 +49,10 @@ jobs:
 
       - name: Build the on-device runtime
         if: steps.runtime-cache.outputs.cache-hit != 'true'
+        # JAVA_HOME_21_arm64 is set by the runner image. The env context can't be read from a
+        # job-level env block, and the build scripts need a JDK of 17 or newer.
         run: |
+          export JAVA_HOME="$JAVA_HOME_21_arm64"
           Scripts/build-java-host.sh
           Scripts/package-apple-runtime.sh ios
 
