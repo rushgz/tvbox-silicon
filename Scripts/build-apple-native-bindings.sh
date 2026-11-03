@@ -28,7 +28,9 @@ sed -i '' 's/SET CMP0048 OLD/SET CMP0048 NEW/' "$WORK/capstone/CMakeLists.txt"
 # JNA resolves the assembler's public C API from the executable. Keep these
 # symbols externally visible even though the archive itself is static.
 sed -i '' 's/    KEYSTONE_STATIC/    TVBOX_STATIC_KEYSTONE/' "$WORK/keystone/llvm/keystone/CMakeLists.txt"
-DEPLOYMENT="${TRIPLE#*apple-}"; DEPLOYMENT="${DEPLOYMENT%-simulator}"
+# arm64-apple-ios16.0(-simulator) -> 16.0. The pattern must match every "apple-", or the
+# platform name stays and the linker reads the version as 0.0.
+DEPLOYMENT="${TRIPLE##*apple-}"; DEPLOYMENT="${DEPLOYMENT%-simulator}"; DEPLOYMENT="${DEPLOYMENT#ios}"; DEPLOYMENT="${DEPLOYMENT#tvos}"
 COMMON=(-DCMAKE_SYSTEM_NAME="$SYSTEM" -DCMAKE_OSX_SYSROOT="$SDK" -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET="$DEPLOYMENT" -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
 cmake -S "$WORK/capstone" -B "$WORK/capstone-$TARGET" "${COMMON[@]}" -DCAPSTONE_BUILD_SHARED=OFF -DCAPSTONE_BUILD_TESTS=OFF -DCAPSTONE_BUILD_CSTOOL=OFF
 cmake --build "$WORK/capstone-$TARGET" -j "${JOBS:-4}"
