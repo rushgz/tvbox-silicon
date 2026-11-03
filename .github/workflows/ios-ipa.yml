@@ -13,6 +13,13 @@ name: iOS IPA
 
 on:
   workflow_dispatch:
+    inputs:
+      # A zip of the packaged runtime, laid out like build/AppleRuntime/iphoneos. When given, the
+      # runtime job unpacks it and skips the Java build. FFmpeg is separate and still built.
+      runtime_url:
+        description: 'URL of a packaged AppleRuntime-iphoneos zip to reuse'
+        required: false
+        type: string
   push:
     branches: [main]
     paths:
@@ -35,32 +42,50 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
 
-      # Saved only when this job succeeds, so the key must not change while a build is still
-      # unfinished. The scripts decide what to rebuild from the files they find.
-      # FFmpeg's script caches the xcframework under TVBOX_FFMPEG_CACHE, keyed on its own recipe.
-      - name: Restore the runtime build
+      # Two caches. The packaged runtime's key never changes, so a runtime built once is reused
+      # even after the scripts change. The build tree's key follows the scripts, because it holds
+      # half-finished compiles that the scripts resume.
+      - name: Restore the packaged runtime
+        id: packaged
+        uses: actions/cache@v4
+        with:
+          path: build/AppleRuntime/iphoneos
+          key: apple-runtime-iphoneos-packaged-v1
+
+      - name: Restore the runtime build tree
         uses: actions/cache@v4
         with:
           path: |
             build/apple-runtime
-            build/AppleRuntime/iphoneos
             build/JavaHost
             ffmpeg-cache
-          key: apple-runtime-ios-v2-${{ hashFiles('Scripts/**', 'Runtime/**', 'Package.swift') }}
+          key: apple-runtime-ios-build-v1-${{ hashFiles('Scripts/**', 'Runtime/**', 'Package.swift') }}
 
       # The xcode-27 image has cmake, maven and ninja, but not autoconf, which OpenJDK needs to
       # generate its configure script. libffi, capstone and keystone ship their own build files.
       - name: Install build tools
+        if: steps.packaged.outputs.cache-hit != 'true' && inputs.runtime_url == ''
         run: brew install autoconf
 
+      - name: Unpack a packaged runtime
+        if: steps.packaged.outputs.cache-hit != 'true' && inputs.runtime_url != ''
+        run: |
+          curl -fL --retry 3 -o "$RUNNER_TEMP/runtime.zip" "${{ inputs.runtime_url }}"
+          mkdir -p build/AppleRuntime/iphoneos
+          unzip -q "$RUNNER_TEMP/runtime.zip" -d build/AppleRuntime/iphoneos
+          test -f build/AppleRuntime/iphoneos/lib/libTVAppleRuntime.a
+
+      - name: Build FFmpeg
+        # Vendor/FFmpeg/FFmpeg.xcframework is a symlink to this script's output, and the package
+        # refuses to resolve without the binary inside it. The script skips a cached build.
+        run: TVBOX_FFMPEG_CACHE="$PWD/ffmpeg-cache" Scripts/build-apple-ffmpeg.sh
+
       - name: Build the on-device runtime
+        if: steps.packaged.outputs.cache-hit != 'true' && inputs.runtime_url == ''
         # JAVA_HOME_21_arm64 is set by the runner image. The env context can't be read from a
         # job-level env block, and the build scripts need a JDK of 17 or newer.
         run: |
           export JAVA_HOME="$JAVA_HOME_21_arm64"
-          # Vendor/FFmpeg/FFmpeg.xcframework is a symlink to this script's output, and the package
-          # refuses to resolve without the binary inside it.
-          TVBOX_FFMPEG_CACHE="$PWD/ffmpeg-cache" Scripts/build-apple-ffmpeg.sh
           Scripts/build-java-host.sh
           Scripts/package-apple-runtime.sh ios
 
@@ -89,10 +114,15 @@ jobs:
         with:
           path: |
             build/apple-runtime
-            build/AppleRuntime/iphoneos
             build/JavaHost
             ffmpeg-cache
-          key: apple-runtime-ios-v2-${{ hashFiles('Scripts/**', 'Runtime/**', 'Package.swift') }}
+          key: apple-runtime-ios-build-v1-${{ hashFiles('Scripts/**', 'Runtime/**', 'Package.swift') }}
+
+      - name: Restore the packaged runtime
+        uses: actions/cache@v4
+        with:
+          path: build/AppleRuntime/iphoneos
+          key: apple-runtime-iphoneos-packaged-v1
 
       # The cache holds the xcframework; this only relinks Vendor/FFmpeg/FFmpeg.xcframework to it.
       - name: Link the FFmpeg xcframework
