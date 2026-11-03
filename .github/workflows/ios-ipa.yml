@@ -67,10 +67,21 @@ jobs:
         if: steps.packaged.outputs.cache-hit != 'true' && inputs.runtime_url == ''
         run: brew install autoconf
 
+      # An artifact page needs a login: a plain curl gets a 404. The API serves it with the
+      # workflow's own token. A release URL or any other public zip downloads directly.
       - name: Unpack a packaged runtime
         if: steps.packaged.outputs.cache-hit != 'true' && inputs.runtime_url != ''
+        env:
+          RUNTIME_URL: ${{ inputs.runtime_url }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          curl -fL --retry 3 -o "$RUNNER_TEMP/runtime.zip" "${{ inputs.runtime_url }}"
+          case "$RUNTIME_URL" in
+            */actions/runs/*/artifacts/*)
+              id="${RUNTIME_URL##*/artifacts/}"; id="${id%%/*}"
+              repo="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+              gh api "/repos/${GITHUB_REPOSITORY}/actions/artifacts/$id/zip" > "$RUNNER_TEMP/runtime.zip" ;;
+            *) curl -fL --retry 3 -o "$RUNNER_TEMP/runtime.zip" "$RUNTIME_URL" ;;
+          esac
           mkdir -p build/AppleRuntime/iphoneos
           unzip -q "$RUNNER_TEMP/runtime.zip" -d build/AppleRuntime/iphoneos
           test -f build/AppleRuntime/iphoneos/lib/libTVAppleRuntime.a
