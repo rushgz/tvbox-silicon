@@ -1,9 +1,9 @@
 name: iOS IPA
 
 # Two jobs so a failure in packaging never throws away the runtime build. The runtime (OpenJDK
-# Zero, libffi, Unicorn, capstone, keystone) takes several hours and is cached, keyed on the
-# scripts, patches and pinned revisions. The scripts skip anything already built, so a retry
-# resumes from the last finished piece instead of starting over.
+# Zero, libffi, Unicorn, capstone, keystone) takes several hours and is cached separately from
+# the small Java host. A new run reuses the native runtime and FFmpeg, then refreshes host.jar
+# from the checked-out source so upstream Java fixes are included.
 #
 # Signing needs three repository secrets, all base64 encoded:
 #   IOS_CERTIFICATE        a distribution .p12
@@ -15,9 +15,10 @@ on:
   workflow_dispatch:
     inputs:
       # A zip of the packaged runtime, laid out like build/AppleRuntime/iphoneos. When given, the
-      # runtime job unpacks it and skips the Java build. FFmpeg is separate and still built.
+      # runtime job imports it instead of rebuilding the native JVM. Usually leave this empty:
+      # the branch's packaged runtime cache is restored automatically. host.jar is always refreshed.
       runtime_url:
-        description: 'URL of a packaged AppleRuntime-iphoneos zip to reuse'
+        description: 'Optional runtime zip to import; leave empty to reuse the branch cache'
         required: false
         type: string
   push:
@@ -30,7 +31,12 @@ on:
       - 'Scripts/**'
       - 'project.yml'
       - 'Package.swift'
+      - 'Vendor/**'
       - '.github/workflows/ios-ipa.yml'
+
+permissions:
+  contents: read
+  actions: read
 
 jobs:
   runtime:
@@ -38,6 +44,9 @@ jobs:
     timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate the Release publisher
+        run: python3 -m unittest discover -s Tests -p test_ios_release.py
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
@@ -52,13 +61,16 @@ jobs:
           path: build/AppleRuntime/iphoneos
           key: apple-runtime-iphoneos-packaged-v1
 
-      # FFmpeg's own key never changes: its script already rebuilds when its recipe changes, so the
-      # cache must not. It used to share the build tree's key and was thrown away with every script edit.
+      # Restore earlier recipes (including the existing v1 cache). The script checks its own
+      # recipe signature; a changed recipe gets a new immutable cache key and is saved once.
       - name: Restore the FFmpeg build
         uses: actions/cache@v4
         with:
           path: ffmpeg-cache
-          key: apple-ffmpeg-v1
+          key: apple-ffmpeg-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Scripts/build-apple-ffmpeg.sh') }}
+          restore-keys: |
+            apple-ffmpeg-v2-${{ runner.os }}-${{ runner.arch }}-
+            apple-ffmpeg-v1
 
       - name: Restore the runtime build tree
         uses: actions/cache@v4
@@ -77,7 +89,7 @@ jobs:
       # An artifact page needs a login: a plain curl gets a 404. The API serves it with the
       # workflow's own token. A release URL or any other public zip downloads directly.
       - name: Unpack a packaged runtime
-        if: steps.packaged.outputs.cache-hit != 'true' && inputs.runtime_url != ''
+        if: inputs.runtime_url != ''
         env:
           RUNTIME_URL: ${{ inputs.runtime_url }}
           GH_TOKEN: ${{ github.token }}
@@ -89,6 +101,7 @@ jobs:
               gh api "/repos/${GITHUB_REPOSITORY}/actions/artifacts/$id/zip" > "$RUNNER_TEMP/runtime.zip" ;;
             *) curl -fL --retry 3 -o "$RUNNER_TEMP/runtime.zip" "$RUNTIME_URL" ;;
           esac
+          rm -rf build/AppleRuntime/iphoneos
           mkdir -p build/AppleRuntime/iphoneos
           unzip -q "$RUNNER_TEMP/runtime.zip" -d build/AppleRuntime/iphoneos
           test -f build/AppleRuntime/iphoneos/lib/libTVAppleRuntime.a
@@ -98,28 +111,48 @@ jobs:
         # refuses to resolve without the binary inside it. The script skips a cached build.
         run: TVBOX_FFMPEG_CACHE="$PWD/ffmpeg-cache" Scripts/build-apple-ffmpeg.sh
 
+      - name: Restore Java host dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: java-host-maven-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Runtime/JavaHost/pom.xml') }}
+          restore-keys: java-host-maven-v1-${{ runner.os }}-${{ runner.arch }}-
+
+      # Java sources change independently of the native JVM. Maven is already on xcode-27.
+      - name: Build the current Java host
+        env:
+          MAVEN_OPTS: -Dmaven.wagon.http.retryHandler.count=3
+        run: |
+          export JAVA_HOME="$JAVA_HOME_21_arm64"
+          Scripts/build-java-host.sh
+
       - name: Build the on-device runtime
         if: steps.packaged.outputs.cache-hit != 'true' && inputs.runtime_url == ''
         # JAVA_HOME_21_arm64 is set by the runner image. The env context can't be read from a
         # job-level env block, and the build scripts need a JDK of 17 or newer.
         run: |
           export JAVA_HOME="$JAVA_HOME_21_arm64"
-          Scripts/build-java-host.sh
           Scripts/package-apple-runtime.sh ios
 
-      # Only when this run built the runtime itself. A runtime taken from runtime_url is already
-      # downloadable where it came from, and the build tree is only useful for resuming a compile.
+      - name: Refresh the Java host in the packaged runtime
+        run: Scripts/sync-apple-javahost.sh iphoneos
+
+      # Pass this run's refreshed host to the IPA job even when the native runtime came from
+      # a cache or runtime_url. This also avoids depending on a second cache restore succeeding.
       - name: Upload the packaged runtime
-        if: steps.packaged.outputs.cache-hit != 'true' && inputs.runtime_url == ''
         uses: actions/upload-artifact@v4
         with:
           name: AppleRuntime-iphoneos
           path: build/AppleRuntime/iphoneos
+          overwrite: true
           if-no-files-found: error
           retention-days: 14
 
   ipa:
     needs: runtime
+    permissions:
+      contents: write
+      actions: read
     runs-on: xcode-27
     timeout-minutes: 120
     steps:
@@ -128,25 +161,20 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
 
-      - name: Restore the runtime build
-        uses: actions/cache@v4
-        with:
-          path: |
-            build/apple-runtime
-            build/JavaHost
-          key: apple-runtime-ios-build-v1-${{ hashFiles('Scripts/**', 'Runtime/**', 'Package.swift') }}
-
       - name: Restore the FFmpeg build
         uses: actions/cache@v4
         with:
           path: ffmpeg-cache
-          key: apple-ffmpeg-v1
+          key: apple-ffmpeg-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Scripts/build-apple-ffmpeg.sh') }}
+          restore-keys: |
+            apple-ffmpeg-v2-${{ runner.os }}-${{ runner.arch }}-
+            apple-ffmpeg-v1
 
-      - name: Restore the packaged runtime
-        uses: actions/cache@v4
+      - name: Download this run's packaged runtime
+        uses: actions/download-artifact@v4
         with:
+          name: AppleRuntime-iphoneos
           path: build/AppleRuntime/iphoneos
-          key: apple-runtime-iphoneos-packaged-v1
 
       # The cache holds the xcframework; this only relinks Vendor/FFmpeg/FFmpeg.xcframework to it.
       - name: Link the FFmpeg xcframework
@@ -223,10 +251,23 @@ jobs:
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/TVBox.xcarchive" \
             -exportPath "$RUNNER_TEMP/ipa" -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
 
+      # Both signing branches reach the same publisher. It reads the archived version,
+      # validates the exported IPA, renames it, and creates one release per workflow run.
+      - name: Publish the iOS 16 Release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IPA_SIGNED: ${{ steps.signing.outputs.signed }}
+        run: |
+          python3 Scripts/publish-ios-release.py \
+            --archive "$RUNNER_TEMP/TVBox.xcarchive" \
+            --ipa-directory "$RUNNER_TEMP/ipa" --signed "$IPA_SIGNED"
+
       - name: Upload the build
         uses: actions/upload-artifact@v4
         with:
           name: TVBox-iOS
+          overwrite: true
           path: |
             ${{ runner.temp }}/ipa/*.ipa
             ${{ runner.temp }}/TVBox.xcarchive
