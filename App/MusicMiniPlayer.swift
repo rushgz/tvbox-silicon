@@ -24,7 +24,7 @@ struct MusicMiniPlayer: View {
     @Environment(Store.self) private var store
     var inline = false
 
-    var body: some View {
+    var body: some View { PerceptionView {
         let music = store.music
         HStack(spacing: inline ? 10 : 12) {
             MusicArtwork(url: music.track?.artwork, size: inline ? 28 : 34)
@@ -44,7 +44,7 @@ struct MusicMiniPlayer: View {
                     ProgressView().frame(width: 36, height: 36)
                 } else {
                     button(music.isPlaying ? "pause.fill" : "play.fill", label: music.isPlaying ? "Pause" : "Play") { music.toggle() }
-                        .contentTransition(.symbolEffect(.replace))
+                        .compatibleContentTransition(.symbolReplace)
                 }
                 if !inline {
                     button("forward.fill", label: "Next") { music.next() }.disabled(music.queue?.hasNext != true)
@@ -62,9 +62,9 @@ struct MusicMiniPlayer: View {
         .simultaneousGesture(DragGesture(minimumDistance: 24).onEnded { drag in
             if abs(drag.translation.width) > 80, abs(drag.translation.width) > abs(drag.translation.height) * 2 { music.stop() }
         })
-        .contextMenu {
-            Button(role: .destructive) { music.stop() } label: { Label(L10n.text("Stop"), systemImage: "xmark") }
-        }
+        .contextMenu { PerceptionView {
+            Button(role: .destructive) { music.stop() } label: { PerceptionView { Label(L10n.text("Stop"), systemImage: "xmark") } }
+        } }
         .accessibilityElement(children: .contain)
         .accessibilityAction(named: L10n.text("Now Playing")) { music.presentsPlayer = true }
         .accessibilityAction(named: L10n.text("Stop")) { music.stop() }
@@ -72,7 +72,7 @@ struct MusicMiniPlayer: View {
         // `-qaNowPlaying artwork|lyrics|queue` opens Now Playing on that panel, for screenshots.
         .task { if UserDefaults.standard.string(forKey: "qaNowPlaying") != nil { music.presentsPlayer = true } }
         #endif
-    }
+    } }
 
     private func button(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {

@@ -56,28 +56,27 @@ struct GlobalSearchView: View {
                                                                        dot: store.health(of: $0.site).warning) }
     }
 
-    var body: some View {
-        @Bindable var model = model
+    var body: some View { PerceptionView {
         #if os(tvOS)
         searchResults
-            .searchable(text: $model.draft, prompt: Text(L10n.text("Search videos")))
+            .searchable(text: binding(model, \.draft), prompt: Text(L10n.text("Search videos")))
             .searchSuggestions {
                 // Past searches first, then titles for what is typed: a remote spells "xyj" and picks 西游记, as on
                 // FongMi's TV search. A completion only fills the field; the Search button below still starts the search.
                 let past = Array(history.filter { model.draft.isEmpty || $0.localizedCaseInsensitiveContains(model.draft) }.prefix(6))
                 ForEach(past + (model.draft.isEmpty ? trending : suggested).filter { !past.contains($0) }, id: \.self) { query in
                     Text(query).searchCompletion(query)
-                }
+                 }
             }
             .task(id: model.draft) { await suggest(model.draft) }
             .onSubmit(of: .search) { if let config = store.subscription { submit(config) } }
             .screenBackdrop()
-            .sheet(isPresented: $showFailures) { failureDetails }
+            .sheet(isPresented: $showFailures) {  failureDetails  }
             .onAppear { if let config = store.subscription { model.resumeSuspended(config: config) } }
             .onDisappear { endVisible = false; model.suspend() }
         #else
         searchResults
-            .scrollPosition(id: $model.scrollID)
+            .compatibleScrollPosition(id: binding(model, \.scrollID))
             // A hard edge: the summary, the activity and the source chips are a tall bar, and results showed through it.
             .topBar(hardEdge: true) { if let config = store.subscription, showsHeader { searchHeader(config) } }
             .screenBackdrop()
@@ -87,14 +86,14 @@ struct GlobalSearchView: View {
             #endif
             // The system search field, as on Sources and Live TV: under the title on iPhone and iPad, in the toolbar on
             // the Mac. Only Return or the keyboard's Search key searches; clearing the field goes back to the recent searches.
-            .catalogSearchable(text: $model.draft, prompt: L10n.text("Search videos"))
+            .catalogSearchable(text: binding(model, \.draft), prompt: L10n.text("Search videos"))
             .searchFieldFocused($inputFocused)
             .onSubmit(of: .search) { if let config = store.subscription { submit(config) } }
-            .onChange(of: model.draft) { _, draft in if draft.isEmpty && !model.keyword.isEmpty { model.reset() } }
+            .onValueChange(of: model.draft) { _, draft in if draft.isEmpty && !model.keyword.isEmpty { model.reset() } }
             #if os(iOS)
             .scrollDismissesKeyboard(.interactively)
             #endif
-            .sheet(isPresented: $showFailures) { failureDetails }
+            .sheet(isPresented: $showFailures) { PerceptionView { failureDetails } }
             .onAppear {
                 // Not on iPhone and iPad: the keyboard would cover the tab bar, and a tab's root page has no back
                 // button, so there would be no way to leave without searching.
@@ -113,7 +112,7 @@ struct GlobalSearchView: View {
             }
             #endif
         #endif
-    }
+    } }
 
     /// The search field is the system's, so the bar below it waits for a search.
     private var showsHeader: Bool { !model.keyword.isEmpty }
@@ -150,9 +149,9 @@ struct GlobalSearchView: View {
                                 emptyResults(config)
                             }
                         } else {
-                            LazyVGrid(columns: Layout.posterColumns, spacing: Layout.gridRowSpacing) {
+                            LazyVGrid(columns: Layout.posterColumns, spacing: Layout.gridRowSpacing) { PerceptionView {
                                 resultLinks(config)
-                            }.scrollTargetLayout()
+                            } }.compatibleScrollTargetLayout()
                             // Scrolling the end into view asks for the next page; while it stays in view each new page asks again.
                             if model.canLoadMore(model.selectedSource) || model.loadingMore {
                                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 24)
@@ -160,7 +159,7 @@ struct GlobalSearchView: View {
                                         endVisible = visible
                                         if visible { model.loadMore(model.selectedSource, config: config) }
                                     }
-                                    .onChange(of: model.loadingMore) { _, loading in
+                                    .onValueChange(of: model.loadingMore) { _, loading in
                                         if !loading, endVisible { model.loadMore(model.selectedSource, config: config) }
                                     }
                             }
@@ -177,14 +176,11 @@ struct GlobalSearchView: View {
     /// Separates "nothing matched" from "most sources never answered" so the empty state does not blame the keyword.
     private func emptyResults(_ config: Subscription) -> some View {
         let mostlyFailed = model.failures.count * 2 > model.completed
-        return ContentUnavailableView {
-            Label(L10n.text(mostlyFailed ? "Most Sources Unavailable" : "No Videos"),
-                  systemImage: mostlyFailed ? "wifi.exclamationmark" : "magnifyingglass")
-        } description: {
-            Text(mostlyFailed
-                 ? L10n.text("%lld of %lld sources didn't respond, so results may be incomplete.", model.failures.count, model.total)
-                 : L10n.text("Try another keyword."))
-        } actions: {
+        return EmptyState(L10n.text(mostlyFailed ? "Most Sources Unavailable" : "No Videos"),
+                          systemImage: mostlyFailed ? "wifi.exclamationmark" : "magnifyingglass",
+                          description: mostlyFailed
+                              ? L10n.text("%lld of %lld sources didn't respond, so results may be incomplete.", model.failures.count, model.total)
+                              : L10n.text("Try another keyword.")) {
             if !model.failures.isEmpty || !model.paused.isEmpty {
                 HStack(spacing: 16) {
                     Button(L10n.text("Retry failed sources")) { model.resume(config: config, retryFailures: true) }
@@ -197,7 +193,6 @@ struct GlobalSearchView: View {
     }
 
     private func searchHeader(_ config: Subscription) -> some View {
-        @Bindable var model = model
         return VStack(alignment: .leading, spacing: 14) {
             if !model.keyword.isEmpty {
                 ViewThatFits(in: .horizontal) {
@@ -230,7 +225,7 @@ struct GlobalSearchView: View {
                                      mark: item.id == Bilibili.siteKey, dot: item.dot) {
                                     model.select(item.id.isEmpty ? nil : item.id)
                                 }
-                            }
+                             }
                         }
                     }
                     #else
@@ -293,36 +288,36 @@ struct GlobalSearchView: View {
 
     @ViewBuilder private func searchActionButtons(_ config: Subscription) -> some View {
         if model.busy {
-            Button { model.stop() } label: { searchActionLabel(L10n.text("Stop"), symbol: "stop.fill") }.searchAction()
+            Button { model.stop() } label: { PerceptionView { searchActionLabel(L10n.text("Stop"), symbol: "stop.fill") } }.searchAction()
             let title = L10n.text(showsActivity ? "Hide Details" : "Show Details")
-            Button { withAnimation(.smooth(duration: 0.25)) { showsActivity.toggle() } } label: {
+            Button { withAnimation(.smooth(duration: 0.25)) { showsActivity.toggle() } } label: { PerceptionView {
                 Image(systemName: "chevron.down").font(.footnote.weight(.semibold))
                     .rotationEffect(.degrees(showsActivity ? 180 : 0))
-            }
+            } }
             .searchAction()
             .accessibilityLabel(title).help(title)
         } else if model.completed < model.total {
-            Button { model.resume(config: config) } label: { searchActionLabel(L10n.text("Continue search"), symbol: "arrow.clockwise") }.searchAction()
+            Button { model.resume(config: config) } label: { PerceptionView { searchActionLabel(L10n.text("Continue search"), symbol: "arrow.clockwise") } }.searchAction()
         }
         if !model.failures.isEmpty || !model.paused.isEmpty {
-            Button { showFailures = true } label: {
+            Button { showFailures = true } label: { PerceptionView {
                 Label {
                     Text(L10n.text("%lld unavailable", model.failures.count + model.paused.count))
                 } icon: {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Brand.amber)
                 }
-            }.searchAction()
+            } }.searchAction()
         }
     }
 
     @ViewBuilder private func resultLinks(_ config: Subscription) -> some View {
-        ForEach(posters) { item in
+        ForEach(posters) { item in PerceptionView {
             RouteLink {
                 CatalogDestination(video: item.video, client: CatalogClient(site: item.site, origin: config.origin, jarURL: config.spiderURL))
                     .onAppear { rememberQuery() }
-            } label: { searchPoster(item) }
+            } label: { PerceptionView { searchPoster(item) } }
             .cardButton().id(item.id)
-        }
+        } }
     }
 
     private func searchPoster(_ item: SearchPoster) -> some View {
@@ -356,9 +351,9 @@ struct GlobalSearchView: View {
                     Button(L10n.text("Clear")) { historyData = Data() }.buttonStyle(.plain).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary).frame(minHeight: 44)
                 }
                 VStack(spacing: 0) {
-                    ForEach(Array(history.enumerated()), id: \.element) { index, item in
+                    ForEach(Array(history.enumerated()), id: \.element) { index, item in PerceptionView {
                         HStack(spacing: 0) {
-                            Button { useHistory(item) } label: {
+                            Button { useHistory(item) } label: { PerceptionView {
                                 HStack(spacing: 14) {
                                     Image(systemName: "clock.arrow.circlepath").font(.body).foregroundStyle(.secondary).frame(width: 24)
                                     Text(item).font(.body).lineLimit(1)
@@ -366,22 +361,22 @@ struct GlobalSearchView: View {
                                 }
                                 .padding(.leading, 18).frame(minHeight: 48).frame(maxWidth: .infinity, alignment: .leading)
                                 .contentShape(Rectangle())
-                            }.buttonStyle(.plain)
-                            Button { removeSearch(item) } label: {
+                            } }.buttonStyle(.plain)
+                            Button { removeSearch(item) } label: { PerceptionView {
                                 Image(systemName: "xmark").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
                                     .frame(width: 36, height: 48)
                                     .contentShape(Rectangle())
-                            }
+                            } }
                             .buttonStyle(.plain)
                             .accessibilityLabel(L10n.text("Remove"))
-                            Button { useHistory(item) } label: {
+                            Button { useHistory(item) } label: { PerceptionView {
                                 Image(systemName: "arrow.up.left").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
                                     .padding(.trailing, 18).frame(height: 48)
                                     .contentShape(Rectangle())
-                            }.buttonStyle(.plain)
+                            } }.buttonStyle(.plain)
                         }
                         if index < history.count - 1 { Divider().padding(.leading, 56) }
-                    }
+                    } }
                 }
                 .glassSurface(.regular, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             }
@@ -407,21 +402,21 @@ struct GlobalSearchView: View {
     private var failureDetails: some View {
         NavigationStack {
             List {
-                ForEach(model.failures) { result in
+                ForEach(model.failures) { result in PerceptionView {
                     VStack(alignment: .leading, spacing: 6) {
                         let health = store.health(of: result.site)
                         HStack(spacing: 6) { Text(result.site.name).font(.headline); SourceHealthDot(status: health) }
                         Text(result.error ?? "").font(.caption).foregroundStyle(.secondary)
                         if health == .failing { Text(health.summary).font(.caption).foregroundStyle(Brand.rose) }
                     }
-                }
+                } }
                 // Sources this search left out for failing; the retry below asks them too.
-                ForEach(model.paused) { site in
+                ForEach(model.paused) { site in PerceptionView {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 6) { Text(site.name).font(.headline); SourceHealthDot(status: .failing) }
                         Text(pauseNote(site)).font(.caption).foregroundStyle(Brand.rose)
                     }
-                }
+                } }
             }
             .screenTitle(L10n.text("Unavailable Sources"))
             .screenBackdrop()
@@ -435,16 +430,16 @@ struct GlobalSearchView: View {
                     Spacer()
                     Button(L10n.text("Done")) { showFailures = false }.controlButton()
                 }.padding(32).controlBackdrop()
-            }
+             }
             #else
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button(L10n.text("Done")) { showFailures = false } }
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItem(placement: .confirmationAction) { PerceptionView { Button(L10n.text("Done")) { showFailures = false } } }
+                ToolbarItem(placement: .primaryAction) { PerceptionView {
                     Button(L10n.text("Retry failed sources")) {
                         if let config = store.subscription { model.resume(config: config, retryFailures: true) }
                         showFailures = false
                     }.disabled(model.busy || (model.failures.isEmpty && model.paused.isEmpty))
-                }
+                } }
             }
             #endif
         }
@@ -664,16 +659,16 @@ struct RecommendationsView: View {
                 Button { openSite(site) } label: {
                     Label(site.name, systemImage: "chevron.right")
                         .lineLimit(1)
-                }
+                 }
                 .glassPill()
-                .contextMenu { sourceActions(site) }
+                .contextMenu {  sourceActions(site)  }
                 .accessibilityIdentifier("recommendations.open")
                 Button {
                     // The sheet only where nothing can be pushed.
                     if openRoute != nil { pickSource(site) } else { choosingSource = true }
                 } label: {
                     Image(systemName: "arrow.left.arrow.right")
-                }
+                 }
                 .glassPill()
                 .accessibilityLabel(L10n.text("Recommendation Source"))
                 .accessibilityIdentifier("recommendations.switch")
@@ -690,36 +685,36 @@ struct RecommendationsView: View {
                                                 if candidate.key == site.key { Image(systemName: "checkmark").foregroundStyle(Brand.accent) }
                                             }
                                             .frame(maxWidth: .infinity)
-                                        }
+                                         }
                                         .glassRow()
-                                        .contextMenu { sourceActions(candidate) { afterPicker = $0; choosingSource = false } }
+                                        .contextMenu {  sourceActions(candidate) { afterPicker = $0; choosingSource = false }  }
                                         .focused($focusedSource, equals: candidate.key)
                                         .id(candidate.key)
-                                    }
-                                }
+                                     }
+                                 }
                                 .glassRowInsets()
                             }
                             // Open on the current source rather than the top of a long list.
-                            .defaultFocus($focusedSource, site.key)
+                            .compatibleDefaultFocus($focusedSource, site.key)
                             .onAppear { proxy.scrollTo(site.key, anchor: .center) }
-                        }
+                         }
                         .screenTitle(L10n.text("Recommendation Source"))
                         .screenBackdrop()
                     }
                     .frame(width: 1000, height: 700)
                     .onExitCommand { choosingSource = false }
-                }
+                 }
                 #endif
                 }
                 Spacer(minLength: 0)
                 #if os(tvOS)
                 Button { forceRefresh = true; revision += 1 } label: {
                     Image(systemName: "arrow.clockwise")
-                }
+                 }
                 .glassPill()
                 .disabled(model.busy).accessibilityLabel(L10n.text("Refresh"))
                 #else
-                Button { forceRefresh = true; revision += 1 } label: {
+                Button { forceRefresh = true; revision += 1 } label: { PerceptionView {
                     ZStack {
                         if model.busy {
                             ProgressView().controlSize(.small)
@@ -733,7 +728,7 @@ struct RecommendationsView: View {
                     // Liquid Glass where the system draws it, as the source and switch buttons beside it.
                     .glassOrFill(.regular.interactive(), Color.primary.opacity(0.06), in: Circle())
                     .contentShape(Circle())
-                }
+                } }
                 .buttonStyle(.plain)
                 .disabled(model.busy)
                 .accessibilityLabel(L10n.text(model.busy ? "Loading…" : "Refresh"))
@@ -754,12 +749,12 @@ struct RecommendationsView: View {
     private func sourcePickerButton(_ site: Site) -> some View {
         HStack(spacing: 8) {
             sourceNameButton(site)
-            Button { pickSource(site) } label: {
+            Button { pickSource(site) } label: { PerceptionView {
                 Image(systemName: "arrow.left.arrow.right").font(.subheadline.weight(.semibold))
                     .frame(width: SourceStrip.controlSize, height: SourceStrip.controlSize)
                     .glassOrFill(.regular.interactive(), Color.primary.opacity(0.06), in: Circle())
                     .contentShape(Circle())
-            }
+            } }
             .buttonStyle(.plain)
             .accessibilityLabel(L10n.text("Recommendation Source"))
             .accessibilityIdentifier("recommendations.switch")
@@ -770,7 +765,7 @@ struct RecommendationsView: View {
     }
 
     private func sourceNameButton(_ site: Site) -> some View {
-        Button { openSite(site) } label: {
+        Button { openSite(site) } label: { PerceptionView {
             HStack(spacing: 6) {
                 Text(site.name).lineLimit(1)
                 Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
@@ -779,9 +774,9 @@ struct RecommendationsView: View {
             .padding(.horizontal, 14).frame(height: SourceStrip.controlSize)
             .glassOrFill(.regular.interactive(), Color.primary.opacity(0.06), in: Capsule())
             .contentShape(Capsule())
-        }
+        } }
         .buttonStyle(.plain)
-        .contextMenu { sourceActions(site) }
+        .contextMenu { PerceptionView { sourceActions(site) } }
         .accessibilityIdentifier("recommendations.open")
     }
     #endif
@@ -865,25 +860,25 @@ struct RecommendationsView: View {
                 if (loadedSite.raw["indexs"]?.int ?? 0) == 1 {
                     Text(L10n.text("Choose a title to find it across your sources.")).font(.subheadline).foregroundStyle(.secondary)
                 }
-                LazyVGrid(columns: Layout.posterColumns, spacing: Layout.gridRowSpacing) {
-                    ForEach(model.items) { item in
+                LazyVGrid(columns: Layout.posterColumns, spacing: Layout.gridRowSpacing) { PerceptionView {
+                    ForEach(model.items) { item in PerceptionView {
                         switch item.destination {
                         case .search(let keyword):
-                            Button { store.searchVideos(keyword) } label: { PosterCard(recommendation: item) }.cardButton()
+                            Button { store.searchVideos(keyword) } label: { PerceptionView { PosterCard(recommendation: item) } }.cardButton()
                         case .detail(let video):
                             RouteLink {
                                 CatalogDestination(video: video, client: CatalogClient(site: loadedSite, origin: config.origin, jarURL: config.spiderURL))
-                            } label: { PosterCard(recommendation: item) }.cardButton()
+                            } label: { PerceptionView { PosterCard(recommendation: item) } }.cardButton()
                         }
-                    }
-                }
+                    } }
+                } }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .tvFocusSection()
             }
         }
     }
 
-    var body: some View {
+    var body: some View { PerceptionView {
         Group {
             #if os(tvOS)
             if rails { tvRails } else { grid }
@@ -916,14 +911,14 @@ struct RecommendationsView: View {
                                client: CatalogClient(site: loadedSite, origin: config.origin, jarURL: config.spiderURL))
         }
         .onDisappear { browser.cancel() }
-        .navigationDestination(item: $openedSource) { route in
+        .compatibleNavigationDestination(item: $openedSource) { route in PerceptionView {
             #if os(macOS)
             route.build().musicBar()
             #else
             route.build()
             #endif
-        }
-    }
+        } }
+    } }
 
     #if os(tvOS)
     /// The picks as a row of covers, then a row for each of the source's first four categories, each loaded when it
@@ -959,11 +954,11 @@ struct RecommendationsView: View {
                                 let cover = WatchNowTVCover(title: item.name, detail: item.remarks, poster: item.poster?.url, headers: item.poster?.headers ?? [:])
                                 switch item.destination {
                                 case .search(let keyword):
-                                    Button { store.searchVideos(keyword) } label: { cover }.cardButton()
+                                    Button { store.searchVideos(keyword) } label: {  cover  }.cardButton()
                                 case .detail(let video):
-                                    RouteLink { CatalogDestination(video: video, client: client) } label: { cover }.cardButton()
+                                    RouteLink { CatalogDestination(video: video, client: client) } label: {  cover  }.cardButton()
                                 }
-                            }
+                             }
                     }
                 } else if !model.busy, model.error == nil, model.categories.isEmpty {
                     Text(L10n.text("This source has no recommendations. Choose another source or use Global Search."))
@@ -971,19 +966,19 @@ struct RecommendationsView: View {
                 }
                 ForEach(model.categories.prefix(4)) { item in
                     WatchNowTVCategoryRail(title: item.name, category: item.id, client: client, seeAll: page)
-                }
+                 }
 
             } else if model.busy {
                 HStack(spacing: DiscoverLayout.spacing) {
                     ForEach(0..<7, id: \.self) { _ in
                         SkeletonBlock(cornerRadius: 12).frame(width: WatchNowTVCover.width, height: WatchNowTVCover.height)
                             .frame(height: WatchNowTVCover.height + DiscoverLayout.captionHeight, alignment: .top)
-                    }
+                     }
                 }
                 .padding(.horizontal, DiscoverLayout.gutter).padding(.vertical, 24)
                 .accessibilityLabel(L10n.text("Loading…"))
             }
-        }
+         }
     }
     #endif
 
@@ -1021,24 +1016,24 @@ struct RecommendationsView: View {
                 let page = sitePage(loadedSite)
                 if !model.items.isEmpty {
                     WatchNowPhoneRow {
-                        ForEach(model.items) { item in
+                        ForEach(model.items) { item in PerceptionView {
                             let cover = WatchNowPhoneCover(title: item.name, detail: item.remarks, poster: item.poster?.url, headers: item.poster?.headers ?? [:])
                             switch item.destination {
                             case .search(let keyword):
-                                Button { store.searchVideos(keyword) } label: { cover }.tmdbCardButton()
+                                Button { store.searchVideos(keyword) } label: { PerceptionView { cover } }.tmdbCardButton()
                             case .detail(let video):
-                                RouteLink { CatalogDestination(video: video, client: client) } label: { cover }.tmdbCardButton()
+                                RouteLink { CatalogDestination(video: video, client: client) } label: { PerceptionView { cover } }.tmdbCardButton()
                             }
-                        }
+                        } }
                     }
                     .padding(.top, -16)
                 } else if !model.busy, model.error == nil, model.categories.isEmpty {
                     Text(L10n.text("This source has no recommendations. Choose another source or use Global Search."))
                         .font(.subheadline).foregroundStyle(.secondary).padding(.horizontal, DiscoverLayout.gutter)
                 }
-                ForEach(model.categories.prefix(4)) { item in
+                ForEach(model.categories.prefix(4)) { item in PerceptionView {
                     WatchNowPhoneCategoryRail(title: item.name, category: item.id, client: client, seeAll: page)
-                }
+                } }
             } else if model.busy {
                 WatchNowPhoneSkeletonRow().padding(.top, -16)
             }
@@ -1056,9 +1051,9 @@ struct RecommendationsView: View {
                 let route = Route { AnyView(SiteView(site: candidate, origin: config.origin, jarURL: config.spiderURL)) }
                 if let openRoute { openRoute(route) } else { openedSource = route }
             }
-        } label: { Label(L10n.text("Search This Source"), systemImage: "magnifyingglass") }
+        } label: { PerceptionView { Label(L10n.text("Search This Source"), systemImage: "magnifyingglass") } }
             .accessibilityIdentifier("source.search." + candidate.key)
-        Button { leave { store.section = .sites } } label: { Label(L10n.text("Manage Sources"), systemImage: AppSection.sites.icon) }
+        Button { leave { store.section = .sites } } label: { PerceptionView { Label(L10n.text("Manage Sources"), systemImage: AppSection.sites.icon) } }
     }
 
     private func categoryChips(_ loadedSite: Site) -> some View {
@@ -1067,9 +1062,9 @@ struct RecommendationsView: View {
                 if !model.items.isEmpty {
                     Chip(title: L10n.text("Recommendations"), selected: category == nil) { category = nil; categoryPage = 1 }
                 }
-                ForEach(model.categories) { item in
+                ForEach(model.categories) { item in PerceptionView {
                     Chip(title: item.name, selected: category == item.id) { category = item.id; categoryPage = 1 }
-                }
+                } }
             }.padding(.vertical, 4)
         }
     }
@@ -1086,24 +1081,24 @@ struct RecommendationsView: View {
             if isIndex {
                 Text(L10n.text("Choose a title to find it across your sources.")).font(.subheadline).foregroundStyle(.secondary)
             }
-            LazyVGrid(columns: Layout.posterColumns, spacing: Layout.gridRowSpacing) {
-                ForEach(browser.videos) { video in
+            LazyVGrid(columns: Layout.posterColumns, spacing: Layout.gridRowSpacing) { PerceptionView {
+                ForEach(browser.videos) { video in PerceptionView {
                     if isIndex {
-                        Button { store.searchVideos(video.name) } label: { PosterCard(video: video) }.cardButton()
+                        Button { store.searchVideos(video.name) } label: { PerceptionView { PosterCard(video: video) } }.cardButton()
                     } else {
-                        RouteLink { CatalogDestination(video: video, client: client) } label: { PosterCard(video: video) }.cardButton()
+                        RouteLink { CatalogDestination(video: video, client: client) } label: { PerceptionView { PosterCard(video: video) } }.cardButton()
                     }
-                }
-            }
+                } }
+            } }
             .frame(maxWidth: .infinity, alignment: .leading)
             .opacity(browser.busy ? 0.55 : 1)
             .tvFocusSection()
             if browser.pageCount > 1 {
                 HStack(spacing: 12) {
-                    Button { categoryPage -= 1 } label: { Image(systemName: "chevron.left").frame(width: 22) }
+                    Button { categoryPage -= 1 } label: { PerceptionView { Image(systemName: "chevron.left").frame(width: 22) } }
                         .controlButton().disabled(categoryPage <= 1 || browser.busy).accessibilityLabel(L10n.text("Previous"))
                     Text(L10n.text("Page %lld of %lld", browser.page, browser.pageCount)).font(.subheadline.weight(.medium).monospacedDigit())
-                    Button { categoryPage += 1 } label: { Image(systemName: "chevron.right").frame(width: 22) }
+                    Button { categoryPage += 1 } label: { PerceptionView { Image(systemName: "chevron.right").frame(width: 22) } }
                         .controlButton().disabled(categoryPage >= browser.pageCount || browser.busy).accessibilityLabel(L10n.text("Next"))
                 }
                 .frame(maxWidth: .infinity).tvFocusSection()
@@ -1145,7 +1140,7 @@ struct SourceStrip: View {
                 }
             }
             .padding(.vertical, 4)
-            .scrollTargetLayout()
+            .compatibleScrollTargetLayout()
         }
     }
 }
@@ -1169,6 +1164,7 @@ struct ScrollStrip<Content: View>: View {
     @State private var position = ScrollPosition(idType: String.self)
     #endif
     @State private var edges = Edges()
+    @State private var viewportWidth: CGFloat = 0
     /// Live geometry and drag state. A plain reference, so updating it never invalidates the view.
     @State private var tracking = Tracking()
 
@@ -1198,6 +1194,8 @@ struct ScrollStrip<Content: View>: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         measuredContent
                     }
+                    .coordinateSpace(name: "sourceStrip")
+                    .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { viewportWidth = $0 }
                     #if os(macOS)
                     .scrollPosition($position)
                     #endif
@@ -1267,10 +1265,15 @@ struct ScrollStrip<Content: View>: View {
     @ViewBuilder private var measuredContent: some View {
         if #available(iOS 18, *) {
             content
-        } else {
+        } else if #available(iOS 17, *) {
             content.onGeometryChange(for: Metrics.self) { geometry in
                 let visible = geometry.bounds(of: .scrollView(axis: .horizontal)) ?? .zero
                 return Metrics(offset: visible.minX, viewport: visible.width, maximum: max(0, geometry.size.width - visible.width))
+            } action: { update($0) }
+        } else {
+            content.onGeometryChange(for: Metrics.self) { geometry in
+                Metrics(offset: -geometry.frame(in: .named("sourceStrip")).minX,
+                        viewport: viewportWidth, maximum: max(0, geometry.size.width - viewportWidth))
             } action: { update($0) }
         }
     }

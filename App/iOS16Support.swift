@@ -1,15 +1,22 @@
 import SwiftUI
+import Perception
 #if os(iOS)
 import UIKit
 
-/// iOS 16 has no `ShareLink`; the system share sheet does the same job.
-enum SharePresenter {
+/// Presents a system share sheet from the active window.
+@MainActor enum SharePresenter {
     static func present(_ url: URL) {
         guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first,
               let root = scene.keyWindow?.rootViewController else { return }
         var top = root
         while let presented = top.presentedViewController { top = presented }
-        top.present(UIActivityViewController(activityItems: [url], applicationActivities: nil), animated: true)
+        let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        if let popover = controller.popoverPresentationController {
+            popover.sourceView = top.view
+            popover.sourceRect = CGRect(x: top.view.bounds.midX, y: top.view.bounds.midY, width: 0, height: 0)
+            popover.permittedArrowDirections = []
+        }
+        top.present(controller, animated: true)
     }
 }
 #endif
@@ -18,14 +25,21 @@ enum SharePresenter {
 /// these stand-ins; where the running system has the real API it is used, and iOS 16 degrades.
 
 extension View {
-    /// iOS 16's `onChange` closure takes the new value alone; iOS 17 and the other platforms already
-    /// have the two-value form, so this stand-in exists only where the system one does not.
-    @available(iOS, introduced: 16, obsoleted: 17)
-    @available(macOS, unavailable)
-    @available(tvOS, unavailable)
-    @available(watchOS, unavailable)
-    func onChange<Value: Equatable>(of value: Value, initial: Bool = false, _ action: @escaping (Value, Value) -> Void) -> some View {
-        modifier(OnChange16(value: value, initial: initial, action: action))
+    /// A distinct name prevents overload resolution from choosing the unavailable system API.
+    @ViewBuilder func onValueChange<Value: Equatable>(of value: Value, initial: Bool = false, _ action: @escaping (Value, Value) -> Void) -> some View {
+        if #available(iOS 17, macOS 14, tvOS 17, *) {
+            onChange(of: value, initial: initial, action)
+        } else {
+            modifier(OnChange16(value: value, initial: initial, action: action))
+        }
+    }
+
+    func onValueChange<Value: Equatable>(of value: Value, initial: Bool = false, _ action: @escaping () -> Void) -> some View {
+        onValueChange(of: value, initial: initial) { _, _ in action() }
+    }
+
+    func onValueChange<Value: Equatable>(of value: Value, initial: Bool = false, _ action: @escaping (Value) -> Void) -> some View {
+        onValueChange(of: value, initial: initial) { _, new in action(new) }
     }
 
     /// `controlSize` is macOS-only until iOS 18.
@@ -38,11 +52,11 @@ extension View {
     }
 
     /// Symbol transitions and effects arrive with iOS 17; iOS 16 keeps the plain symbol.
-    @ViewBuilder func contentTransition(_ transition: ContentTransition16) -> some View {
+    @ViewBuilder func compatibleContentTransition(_ transition: ContentTransition16) -> some View {
         if #available(iOS 17, macOS 14, tvOS 17, *) { self.contentTransition(transition.native) } else { self }
     }
 
-    @ViewBuilder func symbolEffect(_ effect: SymbolEffect16) -> some View {
+    @ViewBuilder func compatibleSymbolEffect(_ effect: SymbolEffect16) -> some View {
         if #available(iOS 17, macOS 14, tvOS 17, *) { self.modifier(SymbolEffect16Modifier(effect: effect)) } else { self }
     }
 
@@ -53,8 +67,8 @@ extension View {
 
     func capsuleButtonBorder() -> some View { modifier(CapsuleBorder()) }
 
-    func scrollIndicators(_ visibility: ScrollIndicatorVisibility16) -> some View { modifier(ScrollIndicators16(visibility: visibility)) }
-    func scrollContentBackground(_ visibility: ScrollBackgroundVisibility16) -> some View { modifier(ScrollBackground16(visibility: visibility)) }
+    func compatibleScrollIndicators(_ visibility: ScrollIndicatorVisibility16) -> some View { modifier(ScrollIndicators16(visibility: visibility)) }
+    func compatibleScrollBackground(_ visibility: ScrollBackgroundVisibility16) -> some View { modifier(ScrollBackground16(visibility: visibility)) }
     func keyboardDismiss(_ mode: KeyboardDismiss16) -> some View { modifier(ScrollDismiss16(mode: mode)) }
 
     /// iOS 17. Content clipped at the scroll view's edge is the iOS 16 behaviour anyway.
@@ -83,7 +97,11 @@ private struct OnChange16<Value: Equatable>: ViewModifier {
     @State private var previous: Value?
     func body(content: Content) -> some View {
         content
-            .onAppear { if initial, previous == nil { action(value, value) }; previous = value }
+            .onAppear {
+                let firstAppearance = previous == nil
+                previous = value
+                if initial, firstAppearance { action(value, value) }
+            }
             .onChange(of: value) { newValue in
                 action(previous ?? newValue, newValue)
                 previous = newValue
@@ -93,7 +111,7 @@ private struct OnChange16<Value: Equatable>: ViewModifier {
 
 /// Stand-in for `Color.mix`, which is iOS 18.
 extension Color {
-    func mix(with other: Color, by fraction: Double) -> Color {
+    func compatibleMix(with other: Color, by fraction: Double) -> Color {
         let amount = max(0, min(1, fraction))
         var r1: CGFloat = 0, g1: CGFloat = 0, b1: CGFloat = 0, a1: CGFloat = 0
         var r2: CGFloat = 0, g2: CGFloat = 0, b2: CGFloat = 0, a2: CGFloat = 0
@@ -114,9 +132,13 @@ enum Clock16 {
     static func hourMinuteSecond(_ seconds: Int) -> String { String(format: "%d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60) }
 }
 
-enum ContentTransition16 { case symbolReplace, numericText
+enum ContentTransition16 { case symbolReplace, numericText, numericTextValue(Double)
     @available(iOS 17, macOS 14, tvOS 17, *) var native: ContentTransition {
-        switch self { case .symbolReplace: .symbolEffect(.replace); case .numericText: .numericText() }
+        switch self {
+        case .symbolReplace: .symbolEffect(.replace)
+        case .numericText: .numericText()
+        case .numericTextValue(let value): .numericText(value: value)
+        }
     }
 }
 enum SymbolEffect16 { case variableColorIterative, variableColorIterativeActive(Bool), breathe }
@@ -160,7 +182,7 @@ private struct ScrollDismiss16: ViewModifier {
 }
 private struct ScrollClip16: ViewModifier {
     func body(content: Content) -> some View {
-        if #available(iOS 17, macOS 14, tvOS 17, *) { content.scrollClipDisabled() } else { content }
+        if #available(iOS 17, macOS 14, tvOS 17, *) { content.scrollClipDisabled(true) } else { content }
     }
 }
 
@@ -236,5 +258,120 @@ extension View {
             }
         }
         .onPreferenceChange(ScrollMetricsKey.self) { metrics in report(-metrics.offset, max(0, metrics.overflow + metrics.offset)) }
+    }
+}
+
+extension View {
+    @ViewBuilder func compatibleScrollTargetLayout() -> some View {
+        if #available(iOS 17, macOS 14, tvOS 17, *) { scrollTargetLayout() } else { self }
+    }
+
+    /// On iOS 16 the reader keeps lyrics and episode selection following the current item.
+    @ViewBuilder func compatibleScrollPosition<ID: Hashable>(id: Binding<ID?>, anchor: UnitPoint? = nil) -> some View {
+        if #available(iOS 17, macOS 14, tvOS 17, *) {
+            scrollPosition(id: id, anchor: anchor)
+        } else {
+            ScrollViewReader { proxy in
+                self
+                    .onAppear { if let value = id.wrappedValue { proxy.scrollTo(value, anchor: anchor) } }
+                    .onValueChange(of: id.wrappedValue) { _, value in
+                        if let value { proxy.scrollTo(value, anchor: anchor) }
+                    }
+            }
+        }
+    }
+
+    @ViewBuilder func compatibleScrollMargins(_ axes: Edge.Set, _ length: CGFloat) -> some View {
+        if #available(iOS 17, macOS 14, tvOS 17, *) { contentMargins(axes, length, for: .scrollContent) }
+        else { padding(axes == .horizontal ? .horizontal : .vertical, length) }
+    }
+
+    @ViewBuilder func compatibleNavigationDestination<Item: Hashable, Destination: View>(
+        item: Binding<Item?>, @ViewBuilder destination: @escaping (Item) -> Destination
+    ) -> some View {
+        if #available(iOS 17, macOS 14, tvOS 17, *) {
+            navigationDestination(item: item, destination: destination)
+        } else {
+            // The Boolean API clears selection on Back on iOS 16 too.
+            navigationDestination(isPresented: Binding(get: { item.wrappedValue != nil }, set: { if !$0 { item.wrappedValue = nil } })) {
+                if let value = item.wrappedValue { destination(value) }
+            }
+        }
+    }
+
+    @ViewBuilder func compatibleDefaultFocus<Value: Hashable>(
+        _ focus: FocusState<Value>.Binding, _ value: Value, priority: FocusPriority16 = .automatic
+    ) -> some View {
+        if #available(iOS 17, macOS 14, tvOS 17, *) {
+            defaultFocus(focus, value, priority: priority == .userInitiated ? .userInitiated : .automatic)
+        } else { onAppear { focus.wrappedValue = value } }
+    }
+
+    @ViewBuilder func compatibleBounce<Value: Equatable>(value: Value) -> some View {
+        if #available(iOS 17, macOS 14, tvOS 17, *) { symbolEffect(.bounce, value: value) } else { self }
+    }
+
+    @ViewBuilder func compatibleBlurTransition() -> some View {
+        if #available(iOS 17, macOS 14, tvOS 17, *) { transition(.blurReplace) } else { transition(.opacity) }
+    }
+
+    @ViewBuilder func compatiblePosterParallax() -> some View {
+        if #available(iOS 17, macOS 14, tvOS 17, *) {
+            visualEffect { view, proxy in view.offset(y: min(0, -proxy.frame(in: .scrollView).minY * 0.16)) }
+        } else { self }
+    }
+
+    @ViewBuilder func welcomeHeight() -> some View {
+        if #available(iOS 17, macOS 14, tvOS 17, *) {
+            containerRelativeFrame(.vertical, alignment: .center) { height, _ in height * 0.82 }
+        } else {
+            #if os(iOS)
+            frame(minHeight: max(0, (UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first?.keyWindow?.bounds.height ?? 600) - 160) * 0.82)
+            #else
+            self
+            #endif
+        }
+    }
+}
+
+enum FocusPriority16 { case automatic, userInitiated }
+
+#if os(iOS)
+enum PlayerFeedback16 {
+    enum Weight { case light, medium }
+    case selection, impact(weight: Weight)
+
+    @MainActor func perform() {
+        switch self {
+        case .selection: UISelectionFeedbackGenerator().selectionChanged()
+        case .impact(let weight): UIImpactFeedbackGenerator(style: weight == .light ? .light : .medium).impactOccurred()
+        }
+    }
+}
+
+extension View {
+    func playerFeedback<Value: Equatable>(trigger: Value, _ feedback: @escaping (Value, Value) -> PlayerFeedback16?) -> some View {
+        onValueChange(of: trigger) { old, new in feedback(old, new)?.perform() }
+    }
+    func playerFeedback<Value: Equatable>(_ feedback: PlayerFeedback16, trigger: Value) -> some View {
+        playerFeedback(trigger: trigger) { _, _ in feedback }
+    }
+}
+#endif
+
+
+/// Deferred SwiftUI builders need their own subscription on iOS 16. Newer systems use native
+/// Observation; keeping this wrapper in one place also keeps Perception out of individual views.
+struct PerceptionView<Content: View>: View {
+    private let content: () -> Content
+
+    init(@ViewBuilder content: @escaping () -> Content) { self.content = content }
+
+    var body: some View {
+        #if os(iOS)
+        WithPerceptionTracking { content() }
+        #else
+        content()
+        #endif
     }
 }

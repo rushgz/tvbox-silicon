@@ -113,7 +113,7 @@ private struct AnnouncementAlert: ViewModifier {
     @State private var settled = false
     @Environment(\.openURL) private var openURL
 
-    func body(content: Content) -> some View {
+    func body(content: Content) -> some View { PerceptionView {
         let message = announcements.current
         content.alert(message?.title.text() ?? "", isPresented: Binding(get: { settled && !blocked && message != nil }, set: { if !$0 { announcements.dismiss() } }),
                       presenting: message) { message in
@@ -133,7 +133,7 @@ private struct AnnouncementAlert: ViewModifier {
             try? await Task.sleep(for: .milliseconds(700))
             if !Task.isCancelled { settled = true }
         }
-    }
+    } }
 }
 
 // MARK: Messages page
@@ -145,20 +145,20 @@ struct MessagesView: View {
     /// The messages that were unread when the page opened; they keep a dot while it is on screen.
     @State private var fresh: Set<String> = []
 
-    var body: some View {
+    var body: some View { PerceptionView {
         let messages = announcements.all
         Group {
             if messages.isEmpty {
-                ContentUnavailableView(L10n.text("No Messages"), systemImage: "megaphone",
-                                       description: Text(L10n.text("News and notices from Yingxia appear here.")))
+                EmptyState(L10n.text("No Messages"), systemImage: "megaphone",
+                           description: L10n.text("News and notices from Yingxia appear here."))
             } else {
                 ScrollView {
                     VStack(spacing: 12) {
-                        ForEach(messages) { card($0) }
+                        ForEach(messages) { trackedValue0 in PerceptionView { card(trackedValue0) } }
                     }
                     .pageContainer()
                 }
-                .scrollIndicators(.hidden)
+                .compatibleScrollIndicators(.hidden)
             }
         }
         #if os(iOS)
@@ -168,7 +168,7 @@ struct MessagesView: View {
         .screenTitle(L10n.text("Messages"))
         // Read at once, so a waiting message doesn't pop up over the page, and again after the check.
         .task { read(); await announcements.check(); read() }
-    }
+    } }
 
     private func read() {
         fresh.formUnion(announcements.unread.map(\.id))
@@ -194,10 +194,10 @@ struct MessagesView: View {
                 .fixedSize(horizontal: false, vertical: true)
             #if !os(tvOS)
             if let link = message.link {
-                Button { openURL(link) } label: {
+                Button { openURL(link) } label: { PerceptionView {
                     Label(message.linkTitle?.text() ?? L10n.text("Learn More"), systemImage: "arrow.up.right")
                         .font(.subheadline.weight(.semibold))
-                }
+                } }
                 .buttonStyle(.borderless)
                 .padding(.top, 2)
             }

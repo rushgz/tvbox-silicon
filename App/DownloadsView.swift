@@ -16,7 +16,7 @@ struct DownloadsView: View {
     private var library: DownloadLibrary { .shared }
     enum Kind: Hashable { case videos, music }
 
-    var body: some View {
+    var body: some View { PerceptionView {
         let pending = library.items.filter(\.isPending)
         let shows = DownloadShow.group(library.items.filter { $0.status == .completed })
         Group {
@@ -34,7 +34,7 @@ struct DownloadsView: View {
         .screenBackdrop()
         .tabTitle(L10n.text("Downloads"))
         .task { await library.measure() }
-        .onChange(of: library.items.filter { $0.status == .completed }.count) { Task { await library.measure() } }
+        .onValueChange(of: library.items.filter { $0.status == .completed }.count) { Task { await library.measure() } }
         #if os(macOS)
         // Files may have been deleted or moved in Finder while the app was in the background.
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -44,9 +44,9 @@ struct DownloadsView: View {
             ToolbarItem(placement: .primaryAction) {
                 Button { NSWorkspace.shared.open(hasMusic && kind == .music ? MusicDownloadLibrary.shared.root : library.root) } label: {
                     Label(L10n.text("Show in Finder"), systemImage: "folder")
-                }
+                 }
                 .help(L10n.text("Show in Finder"))
-            }
+             }
         }
         #endif
         .confirmationDialog(L10n.text("Delete all downloaded episodes of %@?", deleting?.title ?? ""),
@@ -56,7 +56,7 @@ struct DownloadsView: View {
                 deleting = nil
             }
         }
-    }
+    } }
 
     /// Songs are saved apart, in Music; this page leads there too.
     private var hasMusic: Bool { !MusicDownloadLibrary.shared.items.isEmpty }
@@ -72,9 +72,9 @@ struct DownloadsView: View {
                         // Not lazy: the remote only moves focus to views that exist, and below a download queue
                         // as tall as the screen a lazy stack had built none, so Down stopped at the queue.
                         VStack(spacing: Layout.cardSpacing) {
-                            ForEach(shows) { show in
+                            ForEach(shows) { show in PerceptionView {
                                 ShowPanel(show: show) { store.playing = library.channel(for: $0) } delete: { deleting = show }
-                            }
+                            } }
                         }
                     }.tvFocusSection()
                 }
@@ -89,25 +89,25 @@ struct DownloadsView: View {
                 SectionHeader(title: L10n.text("Downloading"))
                 Text("\(pending.count)").font(.headline).monospacedDigit().foregroundStyle(.secondary)
                 Spacer(minLength: 12)
-                Menu {
+                Menu { PerceptionView {
                     Picker(L10n.text("At a Time"), selection: Binding(get: { library.simultaneous }, set: { library.simultaneous = $0 })) {
                         ForEach(1...4, id: \.self) { Text(L10n.text("%lld at a time", $0)).tag($0) }
                     }
-                } label: {
+                } } label: { PerceptionView {
                     Label(L10n.text("%lld at a time", library.simultaneous), systemImage: "square.stack.3d.down.right")
                         .lineLimit(1).fixedSize()
-                }
+                } }
                 .controlButton()
                 if paused.count == pending.count {
-                    Button { library.resumeAll() } label: { Label(L10n.text("Resume All"), systemImage: "play.fill").lineLimit(1).fixedSize() }.controlButton()
+                    Button { library.resumeAll() } label: { PerceptionView { Label(L10n.text("Resume All"), systemImage: "play.fill").lineLimit(1).fixedSize() } }.controlButton()
                 } else {
-                    Button { library.pauseAll() } label: { Label(L10n.text("Pause All"), systemImage: "pause.fill").lineLimit(1).fixedSize() }.controlButton()
+                    Button { library.pauseAll() } label: { PerceptionView { Label(L10n.text("Pause All"), systemImage: "pause.fill").lineLimit(1).fixedSize() } }.controlButton()
                 }
             }
             VStack(spacing: DownloadMetrics.rowSpacing) {
-                ForEach(pending) { item in
+                ForEach(pending) { item in PerceptionView {
                     QueueRow(item: item, rate: library.rates[item.id], position: queuePosition(item, in: pending))
-                }
+                } }
             }
         }.tvFocusSection()
     }
@@ -233,7 +233,7 @@ private struct StorageCard: View {
     let usage: DownloadLibrary.Usage
     /// Downloaded songs, kept apart from the episodes.
     var songs: Int64 = 0
-    var body: some View {
+    var body: some View { PerceptionView {
         let downloads = usage.downloads + songs
         let capacity = usage.capacity ?? 0
         let free = usage.available ?? 0
@@ -252,7 +252,7 @@ private struct StorageCard: View {
                 Text(L10n.text("used by downloads")).font(.subheadline).foregroundStyle(.secondary)
             }
             if capacity > 0 {
-                GeometryReader { proxy in
+                GeometryReader { proxy in PerceptionView {
                     let width = proxy.size.width
                     let share = { (bytes: Int64) in width * CGFloat(Double(bytes) / Double(capacity)) }
                     HStack(spacing: 2) {
@@ -261,7 +261,7 @@ private struct StorageCard: View {
                         Rectangle().fill(Color.primary.opacity(0.08))
                     }
                     .clipShape(Capsule())
-                }
+                } }
                 .frame(height: DownloadMetrics.thumb > 60 ? 16 : 10)
                 .accessibilityHidden(true)
                 HStack(spacing: 18) {
@@ -278,13 +278,13 @@ private struct StorageCard: View {
         .padding(DownloadMetrics.thumb > 60 ? 28 : 18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.primary.opacity(0.06)) }
+        .overlay { PerceptionView { RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.primary.opacity(0.06)) } }
         .accessibilityElement(children: .combine)
         #if os(tvOS)
         // Focusable so the remote can scroll back up to it.
         .focusable()
         #endif
-    }
+    } }
     private func legend(_ color: Color, _ title: String, _ bytes: Int64) -> some View {
         HStack(spacing: 6) {
             Circle().fill(color).frame(width: 8, height: 8)
@@ -300,10 +300,10 @@ private struct QueueRow: View {
     let rate: Double?
     let position: Int?
     private var library: DownloadLibrary { .shared }
-    var body: some View {
+    var body: some View { PerceptionView {
         HStack(spacing: 14) {
             Color.clear.aspectRatio(2.0 / 3.0, contentMode: .fit).frame(width: DownloadMetrics.thumb)
-                .overlay { PosterImage(url: item.poster, headers: item.posterHeaders) }
+                .overlay { PerceptionView { PosterImage(url: item.poster, headers: item.posterHeaders) } }
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -335,13 +335,13 @@ private struct QueueRow: View {
         }
         .padding(DownloadMetrics.thumb > 60 ? 18 : 12)
         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .contextMenu {
+        .contextMenu { PerceptionView {
             if item.status == .queued, (position ?? 1) > 1 {
                 Button(L10n.text("Download Next"), systemImage: "arrow.up.to.line") { library.prioritize(item.id) }
             }
             Button(L10n.text("Cancel Download"), systemImage: "xmark", role: .destructive) { library.remove([item.id]) }
-        }
-    }
+        } }
+    } }
 
     private func status(compact: Bool) -> String {
         let percent = Int((item.fraction * 100).rounded(.down))
@@ -381,10 +381,10 @@ private struct ShowPanel: View {
     let play: (DownloadItem) -> Void
     let delete: () -> Void
     private var library: DownloadLibrary { .shared }
-    var body: some View {
+    var body: some View { PerceptionView {
         HStack(alignment: .top, spacing: 16) {
             Color.clear.aspectRatio(2.0 / 3.0, contentMode: .fit).frame(width: DownloadMetrics.showPoster)
-                .overlay { PosterImage(url: show.poster, headers: show.posterHeaders) }
+                .overlay { PerceptionView { PosterImage(url: show.poster, headers: show.posterHeaders) } }
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             VStack(alignment: .leading, spacing: 10) {
                 VStack(alignment: .leading, spacing: 3) {
@@ -393,7 +393,7 @@ private struct ShowPanel: View {
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
                 EpisodeGrid(minimum: DownloadMetrics.episodeMin, spacing: 8, rowSpacing: DownloadMetrics.thumb > 60 ? 12 : 4).callAsFunction {
-                    ForEach(show.items) { item in episode(item) }
+                    ForEach(show.items) { item in PerceptionView { episode(item) } }
                 }
                 .tvFocusSection()
                 Button(role: .destructive, action: delete) {
@@ -406,10 +406,10 @@ private struct ShowPanel: View {
         .padding(DownloadMetrics.thumb > 60 ? 22 : 14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
+    } }
 
     private func episode(_ item: DownloadItem) -> some View {
-        Button { play(item) } label: {
+        Button { play(item) } label: { PerceptionView {
             HStack(spacing: 10) {
                 Image(systemName: "play.fill").font(.system(size: DownloadMetrics.thumb > 60 ? 18 : 10)).foregroundStyle(.secondary)
                 Text(item.episode).lineLimit(1)
@@ -425,17 +425,17 @@ private struct ShowPanel: View {
             .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             #endif
             .contentShape(Rectangle())
-        }
+        } }
         .glassRow()
         .accessibilityLabel(L10n.text("Play %@", item.episode))
-        .contextMenu {
+        .contextMenu { PerceptionView {
             #if os(macOS)
             if let file = library.file(for: item) {
                 Button(L10n.text("Show in Finder"), systemImage: "folder") { NSWorkspace.shared.activateFileViewerSelecting([file]) }
             }
             #endif
             Button(L10n.text("Delete Download"), systemImage: "trash", role: .destructive) { library.remove([item.id]) }
-        }
+        } }
     }
 }
 
@@ -535,11 +535,11 @@ struct DownloadPicker: View {
     private var library: DownloadLibrary { .shared }
     private func source(_ episode: Episode) -> DownloadSource { DownloadSource(site: site, videoID: video.id, episode: episode) }
     private var available: [Episode] { episodes.filter { library.item(for: source($0)).map { $0.status == .failed } ?? true } }
-    var body: some View {
+    var body: some View { PerceptionView {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top, spacing: 14) {
                 Color.clear.aspectRatio(2.0 / 3.0, contentMode: .fit).frame(width: DownloadMetrics.thumb * 1.2)
-                    .overlay { PosterImage(url: video.poster, headers: video.posterHeaders) }
+                    .overlay { PerceptionView { PosterImage(url: video.poster, headers: video.posterHeaders) } }
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 VStack(alignment: .leading, spacing: 4) {
                     Text(L10n.text("Download Episodes")).font(.title2.weight(.bold))
@@ -550,9 +550,9 @@ struct DownloadPicker: View {
             }
             HStack(spacing: 10) {
                 let all = !available.isEmpty && available.allSatisfy { selection.contains($0.id) }
-                Button { selection = all ? [] : Set(available.map(\.id)) } label: {
+                Button { selection = all ? [] : Set(available.map(\.id)) } label: { PerceptionView {
                     Label(L10n.text(all ? "Deselect All" : "Select All"), systemImage: all ? "circle" : "checkmark.circle")
-                }
+                } }
                 .controlButton().disabled(available.isEmpty)
                 Spacer(minLength: 8)
                 if let free = library.usage.available {
@@ -562,9 +562,9 @@ struct DownloadPicker: View {
             .tvFocusSection()
             ScrollView {
                 // One column of glass rows on the TV, as in the danmaku list; a compact grid elsewhere.
-                LazyVGrid(columns: Self.columns, spacing: DownloadMetrics.thumb > 60 ? 4 : 8) {
-                    ForEach(episodes) { episode in row(episode) }
-                }
+                LazyVGrid(columns: Self.columns, spacing: DownloadMetrics.thumb > 60 ? 4 : 8) { PerceptionView {
+                    ForEach(episodes) { episode in PerceptionView { row(episode) } }
+                } }
                 .padding(.vertical, 4)
                 .glassRowInsets()
             }
@@ -581,9 +581,9 @@ struct DownloadPicker: View {
                     for episode in chosen { library.download(source(episode), title: video.name, poster: video.poster, posterHeaders: video.posterHeaders) }
                     added(chosen.count)
                     dismiss()
-                } label: {
+                } label: { PerceptionView {
                     Label(selection.isEmpty ? L10n.text("Download") : L10n.text("Download %lld", selection.count), systemImage: "arrow.down.circle.fill")
-                }
+                } }
                 .controlButton(prominent: true).disabled(selection.isEmpty)
             }
             // A full-width focus section: the buttons sit at the right, out of line with most episodes,
@@ -597,10 +597,10 @@ struct DownloadPicker: View {
         .presentationDetents([.medium, .large])
         #else
         .frame(maxWidth: 1300).frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background { Backdrop() }
+        .background { PerceptionView { Backdrop() } }
         #endif
         .task { await library.measure() }
-    }
+    } }
 
     private static var columns: [GridItem] {
         #if os(tvOS)
@@ -616,7 +616,7 @@ struct DownloadPicker: View {
         let selected = selection.contains(episode.id)
         return Button {
             if selected { selection.remove(episode.id) } else { selection.insert(episode.id) }
-        } label: {
+        } label: { PerceptionView {
             HStack(spacing: 10) {
                 Image(systemName: locked ? "checkmark.circle.fill" : selected ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(locked ? AnyShapeStyle(.tertiary) : selected ? AnyShapeStyle(Brand.accent) : AnyShapeStyle(.secondary))
@@ -634,7 +634,7 @@ struct DownloadPicker: View {
             .background(Color.primary.opacity(selected ? 0.12 : 0.05), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             #endif
             .contentShape(Rectangle())
-        }
+        } }
         .glassRow()
         .disabled(locked)
         .accessibilityAddTraits(selected ? [.isSelected] : [])

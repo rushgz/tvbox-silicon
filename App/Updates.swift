@@ -216,7 +216,7 @@ struct ReleaseNotesView: View {
         return (update == nil ? updates.displayVersion : updates.latestVersion) ?? ""
     }
 
-    var body: some View {
+    var body: some View { PerceptionView {
         ZStack(alignment: .top) {
             Color.black.ignoresSafeArea()
             ReleaseBackdrop(animated: !reduceMotion)
@@ -229,7 +229,7 @@ struct ReleaseNotesView: View {
         #if os(macOS)
         .frame(width: 780).fixedSize(horizontal: false, vertical: true)
         #endif
-    }
+    } }
 
     @ViewBuilder private var layout: some View {
         #if os(iOS)
@@ -241,11 +241,11 @@ struct ReleaseNotesView: View {
             }
             .padding(.top, sizeClass == .compact ? Size.top * 2 : Size.top).padding(.bottom, 24)
         }
-        .scrollIndicators(.hidden)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        .compatibleScrollIndicators(.hidden)
+        .safeAreaInset(edge: .bottom, spacing: 0) { PerceptionView {
             actions.padding(.horizontal, Size.margin).padding(.top, 16).padding(.bottom, 12)
-                .background { LinearGradient(colors: [.black.opacity(0), .black], startPoint: .top, endPoint: .center).ignoresSafeArea() }
-        }
+                .background { PerceptionView { LinearGradient(colors: [.black.opacity(0), .black], startPoint: .top, endPoint: .center).ignoresSafeArea() } }
+        } }
         #else
         VStack(alignment: .leading, spacing: Size.sectionGap) {
             HStack(alignment: .bottom, spacing: 60) {
@@ -307,7 +307,7 @@ struct ReleaseNotesView: View {
     @ViewBuilder private var shelf: some View {
         #if os(tvOS)
         ScrollView(.horizontal) { cards.padding(.horizontal, Size.margin) }
-            .scrollIndicators(.hidden)
+            .compatibleScrollIndicators(.hidden)
             .scrollClipDisabled()
         #else
         // A mouse wheel can't scroll sideways, so the strip adds dragging and arrows floating at its ends.
@@ -317,11 +317,11 @@ struct ReleaseNotesView: View {
 
     private var cards: some View {
         HStack(alignment: .top, spacing: Size.cardGap) {
-            ForEach(Array(features.enumerated()), id: \.element) { index, feature in
+            ForEach(Array(features.enumerated()), id: \.element) { index, feature in PerceptionView {
                 VStack(alignment: .leading, spacing: Size.captionGap) {
                     #if os(tvOS)
                     // Focusable so the remote can scroll the shelf; the card lifts like a poster.
-                    Button {} label: { ReleaseArt(symbol: feature.symbol, index: index) }.buttonStyle(.card)
+                    Button {} label: {  ReleaseArt(symbol: feature.symbol, index: index)  }.buttonStyle(.card)
                     #else
                     ReleaseArt(symbol: feature.symbol, index: index)
                     #endif
@@ -333,7 +333,7 @@ struct ReleaseNotesView: View {
                     .accessibilityElement(children: .combine)
                 }
                 .frame(width: Size.card)
-            }
+            } }
         }
     }
 
@@ -342,7 +342,7 @@ struct ReleaseNotesView: View {
     /// it, like the shelf cards elsewhere; artwork beside the text squeezed both.
     private var featureList: some View {
         VStack(alignment: .leading, spacing: 30) {
-            ForEach(Array(features.enumerated()), id: \.element) { index, feature in
+            ForEach(Array(features.enumerated()), id: \.element) { index, feature in PerceptionView {
                 VStack(alignment: .leading, spacing: Size.captionGap) {
                     ReleaseArt(symbol: feature.symbol, index: index)
                     VStack(alignment: .leading, spacing: 5) {
@@ -352,7 +352,7 @@ struct ReleaseNotesView: View {
                     }
                 }
                 .accessibilityElement(children: .combine)
-            }
+            } }
         }
         .padding(.horizontal, Size.margin)
     }
@@ -380,13 +380,13 @@ struct ReleaseNotesView: View {
     private func linkActions(_ primary: URL?) -> some View {
         let layout = Self.stackedButtons ? AnyLayout(VStackLayout(spacing: 10)) : AnyLayout(HStackLayout(spacing: 12))
         return layout {
-            Button { if let primary { openURL(primary) }; dismiss() } label: {
+            Button { if let primary { openURL(primary) }; dismiss() } label: { PerceptionView {
                 Label(L10n.text(primary == nil ? "Continue" : testFlight ? "Open TestFlight" : "Get the Update"), systemImage: primary == nil ? "play.fill" : "arrow.down.circle.fill")
                     .frame(maxWidth: Self.stackedButtons ? .infinity : nil)
-            }
+            } }
             .buttonStyle(PillButtonStyle(prominent: true)).keyboardShortcut(.defaultAction)
             if primary != nil {
-                Button { dismiss() } label: { Text(L10n.text("Not Now")).frame(maxWidth: Self.stackedButtons ? .infinity : nil) }
+                Button { dismiss() } label: { PerceptionView { Text(L10n.text("Not Now")).frame(maxWidth: Self.stackedButtons ? .infinity : nil) } }
                     .buttonStyle(PillButtonStyle(prominent: false)).keyboardShortcut(.cancelAction)
             }
         }
@@ -555,7 +555,7 @@ private struct MacInstallActions: View {
                     if let link {
                         Button { installer.clearFailure(); openURL(link); dismiss() } label: {
                             Label(L10n.text("Download Manually"), systemImage: "arrow.down.circle.fill")
-                        }
+                         }
                         .buttonStyle(PillButtonStyle(prominent: true)).keyboardShortcut(.defaultAction)
                     }
                     notNow
@@ -578,10 +578,10 @@ private struct MacInstallActions: View {
             }
             .frame(minHeight: PillButtonStyle.height)
         }
-    }
+     }
 
     private var notNow: some View {
-        Button { installer.clearFailure(); dismiss() } label: { Text(L10n.text("Not Now")) }
+        Button { installer.clearFailure(); dismiss() } label: {  Text(L10n.text("Not Now"))  }
             .buttonStyle(PillButtonStyle(prominent: false)).keyboardShortcut(.cancelAction)
     }
 
@@ -630,7 +630,7 @@ private struct UpdatePresentation: ViewModifier {
     @State private var id = UUID()
     #endif
 
-    func body(content: Content) -> some View {
+    func body(content: Content) -> some View { PerceptionView {
         let pending = updates.sheet != nil || updates.message != nil
         #if os(macOS)
         let shown = !playing && updates.presenter == id
@@ -639,19 +639,19 @@ private struct UpdatePresentation: ViewModifier {
         #endif
         let item = Binding(get: { shown ? updates.sheet : nil }, set: { updates.sheet = $0 })
         #if os(macOS)
-        let presented = content.sheet(item: item) { ReleaseNotesView(sheet: $0).environment(updates) }
-            .onChange(of: active && pending && updates.presenter == nil, initial: true) { _, claim in
+        let presented = content.sheet(item: item) { trackedValue0 in  ReleaseNotesView(sheet: trackedValue0).environment(updates)  }
+            .onValueChange(of: active && pending && updates.presenter == nil, initial: true) { _, claim in
                 if claim { updates.presenter = id }
             }
-            .onChange(of: pending) { _, pending in if !pending { updates.presenter = nil } }
+            .onValueChange(of: pending) { _, pending in if !pending { updates.presenter = nil } }
         #else
-        let presented = content.fullScreenCover(item: item) { ReleaseNotesView(sheet: $0).environment(updates) }
+        let presented = content.fullScreenCover(item: item) { trackedValue0 in PerceptionView { ReleaseNotesView(sheet: trackedValue0).environment(updates) } }
         #endif
-        return presented
+        presented
         .alert(L10n.text("Software Update"), isPresented: Binding(get: { shown && updates.message != nil }, set: { if !$0 { updates.message = nil } })) {
             Button(L10n.text("OK"), role: .cancel) { updates.message = nil }
         } message: { Text(updates.message ?? "") }
-    }
+    } }
 }
 
 enum QRCode {

@@ -14,7 +14,7 @@ struct PlaybackHistoryView: View {
         history.entries.filter { query.isEmpty || $0.context.videoName.localizedCaseInsensitiveContains(query) || $0.context.sourceName.localizedCaseInsensitiveContains(query) }
     }
 
-    var body: some View {
+    var body: some View { PerceptionView {
         Group {
             if history.entries.isEmpty {
                 EmptyPage(symbol: AppSection.history.icon, title: L10n.text("No Playback History Yet"),
@@ -27,7 +27,7 @@ struct PlaybackHistoryView: View {
         .screenBackdrop()
         .historyDetailsDestination()
         .tabTitle(L10n.text("Playback History"))
-        .onChange(of: history.entries.isEmpty) { _, empty in if empty { managing = false; selected.removeAll() } }
+        .onValueChange(of: history.entries.isEmpty) { _, empty in if empty { managing = false; selected.removeAll() } }
         // Leaving the page gives up a title still being prepared.
         .onDisappear { if store.playing == nil { store.cancelResume() } }
         .confirmationDialog(L10n.text("Remove selected history and its cached content?"), isPresented: $confirmsDelete, titleVisibility: .visible) {
@@ -38,7 +38,7 @@ struct PlaybackHistoryView: View {
         } message: {
             Text(L10n.text("Removing a title also clears its cached content and skip times."))
         }
-    }
+    } }
 
     private var content: some View {
         ScrollView {
@@ -47,12 +47,12 @@ struct PlaybackHistoryView: View {
                     StatusNotice(text: L10n.text("Unable to save playback history: %@", error))
                 }
                 header
-                LazyVGrid(columns: Layout.posterColumns, spacing: Layout.gridRowSpacing) {
-                    ForEach(entries) { entry in
+                LazyVGrid(columns: Layout.posterColumns, spacing: Layout.gridRowSpacing) { PerceptionView {
+                    ForEach(entries) { entry in PerceptionView {
                         HistoryCard(entry: entry, selection: managing ? selected.contains(entry.id) : nil, details: true,
                                     action: managing ? { tap(entry) } : nil)
-                    }
-                }
+                    } }
+                } }
                 .tvFocusSection()
             }
             .pageContainer()
@@ -81,20 +81,20 @@ struct PlaybackHistoryView: View {
             if managing {
                 Button(L10n.text("Select all")) { selected = Set(entries.map(\.id)) }
                     .controlButton().accessibilityIdentifier("history.selectAll")
-                Button { deletionIDs = selected; confirmsDelete = true } label: {
+                Button { deletionIDs = selected; confirmsDelete = true } label: { PerceptionView {
                     Label(L10n.text("Delete selected (%lld)", selected.count), systemImage: "trash").lineLimit(1).fixedSize()
-                }
+                } }
                 .controlButton().disabled(selected.isEmpty).accessibilityIdentifier("history.deleteSelected")
                 Button(L10n.text("Done")) { managing = false; selected.removeAll() }
                     .controlButton(prominent: true).accessibilityIdentifier("history.manage")
             } else {
-                Button { managing = true } label: {
+                Button { managing = true } label: { PerceptionView {
                     Label(L10n.text("Manage history"), systemImage: "checklist").lineLimit(1).fixedSize()
-                }
+                } }
                 .controlButton().accessibilityIdentifier("history.manage")
-                Button { deletionIDs = Set(history.entries.map(\.id)); confirmsDelete = true } label: {
+                Button { deletionIDs = Set(history.entries.map(\.id)); confirmsDelete = true } label: { PerceptionView {
                     Label(L10n.text("Clear history"), systemImage: "trash").lineLimit(1).fixedSize()
-                }
+                } }
                 .controlButton()
             }
     }
@@ -150,7 +150,7 @@ struct HistoryCard: View {
         true
         #endif
     }
-    var body: some View {
+    var body: some View { PerceptionView {
         // The heart is a sibling of the poster button, so a click does not resume or change the selection.
         ZStack(alignment: .topLeading) {
             posterButton
@@ -162,9 +162,9 @@ struct HistoryCard: View {
         #if !os(tvOS)
         // The menu lifts the whole card. Lifted from the poster alone, it left the heart drawn above
         // the poster behind: alone over the hole for a moment, then gone under the blur, a flicker.
-        .contextMenu { menu }
+        .contextMenu { PerceptionView { menu } }
         #endif
-        .overlay(alignment: .topTrailing) {
+        .overlay(alignment: .topTrailing) { PerceptionView {
             if selection == nil, hovering {
                 HStack(spacing: 6) {
                     if let details = detailsRoute { detailsButton(details) }
@@ -173,12 +173,12 @@ struct HistoryCard: View {
                     .padding(8)
                     .transition(.opacity)
             }
-        }
+        } }
         #if !os(tvOS)
         .onHover { hovering = $0 }
         .animation(.smooth(duration: 0.15), value: hovering)
         #endif
-    }
+    } }
 
     /// Remove control, rose under the pointer. A pointer shows it; the context menu stays for touch and the remote.
     private var historyRemove: some View {
@@ -226,7 +226,7 @@ struct HistoryCard: View {
         .accessibilityIdentifier((selection != nil ? "history.select." : "history.resume.") + entry.context.videoID)
         #if os(tvOS)
         // The remote opens a menu on the focused button, so it stays here.
-        .contextMenu { menu }
+        .contextMenu {  menu  }
         #endif
     }
 
@@ -234,21 +234,21 @@ struct HistoryCard: View {
         Button {
             guard drag?.active != true else { return }
             if let action { action() } else { store.resume(entry) }
-        } label: { cardLabel }
+        } label: { PerceptionView { cardLabel } }
         .cardButton()
     }
 
     private var cardLabel: some View {
         VStack(alignment: centredCaptions ? .center : .leading, spacing: 8) {
             Color.clear.aspectRatio(2.0 / 3.0, contentMode: .fit)
-                .overlay { PosterImage(url: entry.context.poster, headers: entry.context.posterHeaders ?? [:]) }
+                .overlay { PerceptionView { PosterImage(url: entry.context.poster, headers: entry.context.posterHeaders ?? [:]) } }
                 .coverOverlay(alignment: .bottom) {
                     if entry.duration > 0 {
                         // White on the artwork, as in the TV app: the accent is near-black in light mode.
-                        GeometryReader { proxy in
+                        GeometryReader { proxy in PerceptionView {
                             Capsule().fill(.white.opacity(0.25))
-                                .overlay(alignment: .leading) { Capsule().fill(.white).frame(width: proxy.size.width * entry.progress) }
-                        }
+                                .overlay(alignment: .leading) { PerceptionView { Capsule().fill(.white).frame(width: proxy.size.width * entry.progress) } }
+                        } }
                         .frame(height: 5).padding(10)
                     }
                 }
@@ -257,7 +257,7 @@ struct HistoryCard: View {
                         Image(systemName: selection ? "checkmark.circle.fill" : "circle")
                             .font(.title2).symbolRenderingMode(.palette)
                             .foregroundStyle(selection ? Brand.onAccent : .white, selection ? Brand.accent : .black.opacity(0.35))
-                            .contentTransition(.symbolEffect(.replace))
+                            .compatibleContentTransition(.symbolReplace)
                             .padding(8)
                     }
                 }
@@ -320,7 +320,7 @@ private struct HistoryDetailsDestination: ViewModifier {
     func body(content: Content) -> some View {
         content
             .environment(\.openHistoryDetails) { if let openRoute { openRoute($0) } else { route = $0 } }
-            .navigationDestination(item: $route) { route in
+            .compatibleNavigationDestination(item: $route) { route in
                 #if os(macOS)
                 route.build().musicBar()
                 #else

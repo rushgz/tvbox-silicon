@@ -69,7 +69,7 @@ struct MobilePlayerView: View {
     /// The screen's brightness before the first slide changed it, put back when the player closes.
     @State private var brightnessBefore: CGFloat?
 
-    var body: some View {
+    var body: some View { PerceptionView {
         ZStack {
             PlayerLayerView(player: session.player, fills: fillsScreen, pip: pip).playerBleed(!inline)
             // The enhanced picture covers the layer's own, under everything else.
@@ -139,23 +139,23 @@ struct MobilePlayerView: View {
             if let brightnessBefore { screen?.brightness = brightnessBefore }
         }
         // Played here again (the Lock Screen, say): the other device no longer has it to itself.
-        .onChange(of: session.paused) { _, paused in if !paused { playingOn = nil } }
-        .onChange(of: nowPlayingState, initial: true) { nowPlaying.update(title: channel.name, session: session) }
-        .onChange(of: nowPlayingArtwork, initial: true) { _, artwork in nowPlaying.show(artwork, session: session) }
+        .onValueChange(of: session.paused) { _, paused in if !paused { playingOn = nil } }
+        .onValueChange(of: nowPlayingState, initial: true) { nowPlaying.update(title: channel.name, session: session) }
+        .onValueChange(of: nowPlayingArtwork, initial: true) { _, artwork in nowPlaying.show(artwork, session: session) }
         // Pausing ends the faster speed in the session; another episode or quality plays at the chosen one.
-        .onChange(of: session.boost == nil) { _, ended in if ended { boost = nil } }
-        .onChange(of: clock.item) { endBoost() }
-        .sensoryFeedback(trigger: boost) { old, new in
+        .onValueChange(of: session.boost == nil) { _, ended in if ended { boost = nil } }
+        .onValueChange(of: clock.item) { endBoost() }
+        .playerFeedback(trigger: boost) { old, new in
             guard let new else { return nil }
             guard let old else { return .impact(weight: .light) }
             return new.locked != old.locked ? .impact(weight: .medium) : new.rate != old.rate ? .selection : nil
         }
         .task(id: clock.item.map(ObjectIdentifier.init)) { await tracks.load(clock.item) }
-        .sheet(isPresented: $showsDanmakuList) {
+        .sheet(isPresented: $showsDanmakuList) { PerceptionView {
             DanmakuListView(player: session.player, comments: session.danmaku) { showsDanmakuList = false }
                 .danmakuListPresentation()
-        }
-    }
+        } }
+    } }
 
     /// What the Lock Screen's Now Playing shows, besides the position the system runs on from the rate.
     private struct NowPlayingState: Equatable {
@@ -280,7 +280,7 @@ struct MobilePlayerView: View {
                 Image(systemName: level.volume ? (level.value <= 0 ? "speaker.slash.fill" : "speaker.wave.2.fill") : "sun.max.fill")
                     .frame(width: 26)
                 Capsule().fill(.white.opacity(0.3)).frame(width: 150, height: 6)
-                    .overlay(alignment: .leading) { Capsule().fill(.white).frame(width: 150 * level.value, height: 6) }
+                    .overlay(alignment: .leading) { PerceptionView { Capsule().fill(.white).frame(width: 150 * level.value, height: 6) } }
             }
             .font(.headline)
             .foregroundStyle(.white)
@@ -303,10 +303,10 @@ struct MobilePlayerView: View {
             VStack(spacing: 4) {
                 Image(systemName: skipped.forward ? "goforward.10" : "gobackward.10")
                     .font(.system(size: 30, weight: .medium))
-                    .symbolEffect(.bounce, value: skipped.total)
+                    .compatibleBounce(value: skipped.total)
                 Text((skipped.forward ? "+" : "\u{2212}") + L10n.text("%lld s", Int(skipped.total)))
                     .font(.footnote.weight(.semibold).monospacedDigit())
-                    .contentTransition(.numericText(value: skipped.total))
+                    .compatibleContentTransition(.numericTextValue(skipped.total))
             }
             .foregroundStyle(.white)
             .frame(width: 96, height: 96)
@@ -497,9 +497,9 @@ struct MobilePlayerView: View {
                 }
             }
             if pip.supported {
-                Button { pip.toggle() } label: {
+                Button { pip.toggle() } label: { PerceptionView {
                     Image(systemName: pip.active ? "pip.exit" : "pip.enter").font(.headline).frame(width: 22, height: 22)
-                }
+                } }
                 .chromeButton()
                 .disabled(!pip.possible && !pip.active)
                 .accessibilityLabel(L10n.text("Picture in Picture"))
@@ -509,17 +509,17 @@ struct MobilePlayerView: View {
             if !inline { CatalogPlaybackActions(channel: channel, session: session) }
             // One button for danmaku: show or hide them, or open the list.
             if !session.danmaku.isEmpty {
-                Menu {
+                Menu { PerceptionView {
                     Toggle(isOn: $showsDanmaku) { Label(L10n.text("Show Danmaku"), systemImage: "text.bubble") }
                     Picker(selection: $danmakuArea) {
                         ForEach(DanmakuArea.allCases, id: \.self) { Text($0.title).tag($0) }
-                    } label: { Label(L10n.text("Danmaku Area"), systemImage: "rectangle.tophalf.inset.filled") }
+                    } label: { PerceptionView { Label(L10n.text("Danmaku Area"), systemImage: "rectangle.tophalf.inset.filled") } }
                     .pickerStyle(.menu)
                     DanmakuStylePickers(model: session.catalogDanmaku)
-                    Button { showsDanmakuList = true } label: { Label(L10n.text("Danmaku List"), systemImage: "list.bullet.rectangle") }
-                } label: {
+                    Button { showsDanmakuList = true } label: { PerceptionView { Label(L10n.text("Danmaku List"), systemImage: "list.bullet.rectangle") } }
+                } } label: { PerceptionView {
                     Image(systemName: showsDanmaku ? "text.bubble.fill" : "text.bubble").font(.headline).frame(width: 22, height: 22)
-                }
+                } }
                 .chromeButton()
                 .accessibilityLabel(L10n.text("Danmaku"))
             }
@@ -527,9 +527,9 @@ struct MobilePlayerView: View {
             // Only on a phone-sized screen: iPhone Duo's inner display (regular both ways) ignores orientations.
             if !inline, PlayerOrientation.available, horizontalSizeClass == .compact || verticalSizeClass == .compact {
                 let landscape = verticalSizeClass == .compact
-                Button { PlayerOrientation.set(landscape: !landscape) } label: {
+                Button { PlayerOrientation.set(landscape: !landscape) } label: { PerceptionView {
                     Image(systemName: landscape ? "rectangle.portrait.rotate" : "rectangle.landscape.rotate").font(.headline).frame(width: 22, height: 22)
-                }
+                } }
                 .chromeButton()
                 .accessibilityLabel(L10n.text(landscape ? "Rotate to Portrait" : "Rotate to Landscape"))
                 .accessibilityIdentifier("player.rotate")
@@ -542,8 +542,8 @@ struct MobilePlayerView: View {
 
     /// The picture, sound and subtitle settings in one menu: what AVKit's ⋯ menu held, and the stream's quality.
     private var optionsMenu: some View {
-        Menu {
-            if session.qualities.count > 1 { Menu(L10n.text("Quality")) { QualityPicker(session: session) } }
+        Menu { PerceptionView {
+            if session.qualities.count > 1 { Menu(L10n.text("Quality")) { PerceptionView { QualityPicker(session: session) } } }
             if pictureSwitches {
                 Section(L10n.text("Picture")) {
                     if VideoEnhancement.canSmooth { Toggle(L10n.text("Smooth Motion (60 fps)"), isOn: $smoothsVideo) }
@@ -551,36 +551,36 @@ struct MobilePlayerView: View {
                 }
             }
             if let audio = tracks.audio, audio.options.count > 1 {
-                Menu(L10n.text("Audio")) {
+                Menu(L10n.text("Audio")) { PerceptionView {
                     Picker(L10n.text("Audio"), selection: Binding(get: { tracks.selected(in: audio) }, set: { tracks.select($0, in: audio) })) {
                         ForEach(audio.options, id: \.self) { Text($0.displayName).tag(Optional($0)) }
                     }
                     .pickerStyle(.inline)
-                }
+                } }
             }
             if let legible = tracks.legible, !legible.options.isEmpty {
-                Menu(L10n.text("Subtitles")) {
+                Menu(L10n.text("Subtitles")) { PerceptionView {
                     Picker(L10n.text("Subtitles"), selection: Binding(get: { tracks.selected(in: legible) }, set: { tracks.select($0, in: legible) })) {
                         if legible.group.allowsEmptySelection { Text(L10n.text("Off")).tag(AVMediaSelectionOption?.none) }
                         ForEach(legible.options, id: \.self) { Text($0.displayName).tag(Optional($0)) }
                     }
                     .pickerStyle(.inline)
-                }
+                } }
             }
             if !session.isLive {
-                Menu(L10n.text("Playback Speed")) {
+                Menu(L10n.text("Playback Speed")) { PerceptionView {
                     Picker(L10n.text("Playback Speed"), selection: Binding(get: { speed }, set: { speed = $0; session.setSpeed($0) })) {
                         ForEach(Self.speeds, id: \.self) { Text(Self.speedLabel($0)).tag($0) }
                     }
                     .pickerStyle(.inline)
-                }
+                } }
             }
             Toggle(L10n.text("Fill Screen"), isOn: $fillsScreen)
             Toggle(L10n.text("Show Video Info"), isOn: $showsPlaybackInfo)
-        } label: {
+        } } label: { PerceptionView {
             Image(systemName: "slider.horizontal.3").font(.headline).frame(width: 22, height: 22)
                 .symbolVariant(pictureSwitches && (upscalesVideo || smoothsVideo) ? .fill : .none)
-        }
+        } }
         .chromeButton()
         // "Playback Options" is the catalog's episode menu beside it.
         .accessibilityLabel(L10n.text("Settings"))
@@ -597,19 +597,19 @@ struct MobilePlayerView: View {
     private var centerRow: some View {
         HStack(spacing: 20) {
             if seekable && !inline {
-                Button { session.skip(-10); sought() } label: { Image(systemName: "gobackward.10") }
+                Button { session.skip(-10); sought() } label: { PerceptionView { Image(systemName: "gobackward.10") } }
                     .buttonStyle(PlayerCircleStyle(size: 52))
                     .accessibilityLabel(L10n.text("Back 10 seconds"))
             }
-            Button { session.togglePlayback() } label: {
+            Button { session.togglePlayback() } label: { PerceptionView {
                 // Swapped as the music player's is.
-                Image(systemName: session.paused ? "play.fill" : "pause.fill").contentTransition(.symbolEffect(.replace))
-            }
+                Image(systemName: session.paused ? "play.fill" : "pause.fill").compatibleContentTransition(.symbolReplace)
+            } }
                 .buttonStyle(PlayerCircleStyle(size: inline ? 50 : 68))
                 .accessibilityLabel(L10n.text(session.paused ? "Play" : "Pause"))
                 .accessibilityIdentifier("player.playPause")
             if seekable && !inline {
-                Button { session.skip(10); sought() } label: { Image(systemName: "goforward.10") }
+                Button { session.skip(10); sought() } label: { PerceptionView { Image(systemName: "goforward.10") } }
                     .buttonStyle(PlayerCircleStyle(size: 52))
                     .accessibilityLabel(L10n.text("Forward 10 seconds"))
             }
@@ -625,13 +625,13 @@ struct MobilePlayerView: View {
         if previous != nil || next != nil || toggleFullScreen != nil {
             HStack(spacing: 10) {
                 if let previous {
-                    Button { previous.go() } label: { Image(systemName: "backward.end.fill") }
+                    Button { previous.go() } label: { PerceptionView { Image(systemName: "backward.end.fill") } }
                         .buttonStyle(PlayerCircleStyle(size: 36))
                         .disabled(previous.busy)
                         .accessibilityLabel(L10n.text("Previous Episode"))
                 }
                 if let next {
-                    Button { next.go() } label: { Image(systemName: "forward.end.fill") }
+                    Button { next.go() } label: { PerceptionView { Image(systemName: "forward.end.fill") } }
                         .buttonStyle(PlayerCircleStyle(size: 36))
                         .disabled(next.busy)
                         .accessibilityLabel(L10n.text("Next Episode"))
@@ -813,7 +813,7 @@ private struct SeekBar<Accessory: View>: View {
     @State private var fineness = 1.0
     @State private var width: CGFloat = 0
 
-    var body: some View {
+    var body: some View { PerceptionView {
         // Every display frame while it plays, as AVKit's bar does; paused, held or hidden, only when the clock changes.
         let follows = moving && clock.scrubbing == nil
         TimelineView(.animation(paused: !follows)) { _ in
@@ -821,12 +821,12 @@ private struct SeekBar<Accessory: View>: View {
         }
         // Outside the bar, which is one accessibility element. Gone while scrubbing, when the time grows with the
         // scrubbing speed's label and the finger is there to scrub.
-        .overlay(alignment: .topTrailing) {
+        .overlay(alignment: .topTrailing) { PerceptionView {
             if drag == nil { accessory().frame(height: Self.timeRow).transition(.opacity) }
-        }
+        } }
         .animation(.easeOut(duration: 0.15), value: drag == nil)
-        .sensoryFeedback(.selection, trigger: fineness)
-    }
+        .playerFeedback(.selection, trigger: fineness)
+    } }
 
     private func bar(_ position: Double) -> some View {
         let duration = clock.duration
@@ -860,7 +860,7 @@ private struct SeekBar<Accessory: View>: View {
             .animation(.spring(duration: 0.3, bounce: 0.3), value: held)
         }
         // The frame at the finger, above the time, centred on the handle and kept on screen.
-        .overlay(alignment: .topLeading) {
+        .overlay(alignment: .topLeading) { PerceptionView {
             if held, let preview = clock.preview {
                 let previewWidth: CGFloat = 160
                 Image(decorative: preview, scale: 1).resizable().aspectRatio(contentMode: .fit)
@@ -873,7 +873,7 @@ private struct SeekBar<Accessory: View>: View {
                     .transition(.opacity)
                     .allowsHitTesting(false)
             }
-        }
+        } }
         .animation(.easeOut(duration: 0.12), value: held && clock.preview != nil)
         .accessibilityElement()
         .accessibilityLabel(L10n.text("Playback Position"))

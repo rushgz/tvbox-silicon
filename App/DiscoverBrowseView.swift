@@ -50,7 +50,7 @@ struct DiscoverBrowseView: View {
         }
         .background { DiscoverSearchAtmosphere() }
         .foregroundStyle(.white).preferredColorScheme(.dark)
-        .onChange(of: filter.kind) { _, kind in filter.genres.formIntersection(DiscoverGenres.ids(for: kind)) }
+        .onValueChange(of: filter.kind) { _, kind in filter.genres.formIntersection(DiscoverGenres.ids(for: kind)) }
         .task(id: request) { await load(reset: true) }
         #else
         GeometryReader { geometry in
@@ -85,7 +85,7 @@ struct DiscoverBrowseView: View {
                         .onAppear { Task { await load(reset: false) } }
                 }
                 Color.clear.frame(height: 90)
-            }.scrollIndicators(.hidden)
+            }.compatibleScrollIndicators(.hidden)
                 .overlay(alignment: .bottomTrailing) { sortMenu.padding(20) }
         }
         .background { DiscoverSearchAtmosphere() }
@@ -125,7 +125,7 @@ struct DiscoverBrowseView: View {
                     .accessibilityIdentifier("discover.browse.layout")
             }
         }
-        .onChange(of: filter.kind) { _, kind in filter.genres.formIntersection(DiscoverGenres.ids(for: kind)) }
+        .onValueChange(of: filter.kind) { _, kind in filter.genres.formIntersection(DiscoverGenres.ids(for: kind)) }
         .task(id: request) { await load(reset: true) }
         #endif
     }

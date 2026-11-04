@@ -119,7 +119,7 @@ struct DiscoverTVHeroPager: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .focusScope(pagesScope)
             .focusSection()
-            .onChange(of: focusedPage) { _, page in
+            .onValueChange(of: focusedPage) { _, page in
                 guard let page, items.indices.contains(page) else { return }
                 withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) { selection = items[page].key }
             }
@@ -494,7 +494,7 @@ struct DiscoverTVSearchView: View {
                 if model.loading && model.groups.isEmpty { ProgressView().frame(maxWidth: .infinity).padding(.top, 80) }
                 ForEach([TMDBCatalog.SearchKind.person, .movie, .tv], id: \.self) { kind in
                     if let group = model.groups[kind], group.count > 0 { section(group, kind: kind) }
-                }
+                 }
                 if model.isEmpty && !model.loading && !model.failed {
                     EmptyResults(symbol: "magnifyingglass", title: L10n.text("No Results"), message: L10n.text("Try another title or change your filters."),
                                  action: filter == nil ? nil : L10n.text("Reset Filters"), actionSymbol: "xmark") { filter = nil }
@@ -504,18 +504,18 @@ struct DiscoverTVSearchView: View {
             }.padding(.top, 50).padding(.bottom, 80)
         }
         .scrollClipDisabled()
-        .background { DiscoverSearchAtmosphere().ignoresSafeArea() }
+        .background {  DiscoverSearchAtmosphere().ignoresSafeArea()  }
         .foregroundStyle(.white).preferredColorScheme(.dark)
         .toolbar(.hidden, for: .navigationBar)
         .ignoresSafeArea(edges: .horizontal)
-        .defaultFocus($focus, .query)
-        .onChange(of: query) { _, value in if value.count > 100 { query = String(value.prefix(100)) } }
-        .onChange(of: filter) { _, _ in expanded = nil }
+        .compatibleDefaultFocus($focus, .query)
+        .onValueChange(of: query) { _, value in if value.count > 100 { query = String(value.prefix(100)) } }
+        .onValueChange(of: filter) { _, _ in expanded = nil }
         .task(id: request) { await model.load(request) }
         .sheet(isPresented: $keywordsShown) {
             DiscoverSearchFilters(filter: Binding(get: { current }, set: { filter = $0 }), section: .keywords).frame(width: 900)
-        }
-    }
+         }
+     }
 
     // MARK: Filters
 
@@ -535,8 +535,8 @@ struct DiscoverTVSearchView: View {
                         } label: {
                             let name = L10n.text(DiscoverGenres.names[id] ?? (id == 10766 ? "Soap" : "War & Politics"))
                             if selected { Label(name, systemImage: "checkmark") } else { Text(name) }
-                        }
-                    }
+                         }
+                     }
                 }
                 menu(.years) {
                     Picker(DiscoverFilterSection.years.title, selection: Binding(get: { "\(current.from)-\(current.to)" }, set: { value in
@@ -583,7 +583,7 @@ struct DiscoverTVSearchView: View {
                     .buttonStyle(DiscoverTVChipStyle(active: !current.keywords.isEmpty))
                     .accessibilityIdentifier("discover.filter.section.keywords")
                 if filter != nil {
-                    Button { filter = nil } label: { Label(L10n.text("Reset Filters"), systemImage: "xmark") }
+                    Button { filter = nil } label: {  Label(L10n.text("Reset Filters"), systemImage: "xmark")  }
                         .buttonStyle(DiscoverTVChipStyle(active: false))
                         .accessibilityIdentifier("discover.search.resetFilters")
                 }
@@ -592,7 +592,7 @@ struct DiscoverTVSearchView: View {
     }
 
     private func menu(_ section: DiscoverFilterSection, @ViewBuilder content: () -> some View) -> some View {
-        Menu { content() } label: { Text(section.chipTitle(filter)) }
+        Menu {  content()  } label: {  Text(section.chipTitle(filter))  }
             .menuStyle(.button)
             .buttonStyle(DiscoverTVChipStyle(active: filter != nil && section.chipTitle(filter) != section.chipTitle(nil)))
             .accessibilityIdentifier("discover.filter.section.\(section.rawValue)")
@@ -626,7 +626,7 @@ struct DiscoverTVSearchView: View {
                     Button { withAnimation { expanded = grid ? nil : kind } } label: {
                         Label(L10n.text(grid ? "Show Less" : "See All"), systemImage: grid ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                             .font(.system(size: 26)).foregroundStyle(.white.opacity(0.7))
-                    }
+                     }
                     .buttonStyle(DiscoverTVChipStyle(active: false))
                     .accessibilityIdentifier("discover.search.expand.\(kind.rawValue)")
                 }
@@ -635,11 +635,11 @@ struct DiscoverTVSearchView: View {
                 ScrollView(.horizontal) {
                     LazyHStack(alignment: .top, spacing: 40) {
                         ForEach(group.people) { person in
-                            RouteLink { DiscoverPersonView(id: person.id, name: person.name, profile: person.profile) } label: { portrait(person) }
+                            RouteLink { DiscoverPersonView(id: person.id, name: person.name, profile: person.profile) } label: {  portrait(person)  }
                                 .cardButton(.circle)
                                 .accessibilityIdentifier("discover.search.person.\(person.id)")
-                        }
-                    }.padding(.horizontal, gutter).padding(.vertical, 24)
+                         }
+                     }.padding(.horizontal, gutter).padding(.vertical, 24)
                 }.scrollClipDisabled()
             } else if grid {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 40), count: 3), alignment: .leading, spacing: 40) {
@@ -647,21 +647,21 @@ struct DiscoverTVSearchView: View {
                         card(item).onAppear {
                             if item.key == group.items.last?.key { Task { await model.more(kind, request: request) } }
                         }
-                    }
-                }.padding(.horizontal, gutter)
+                     }
+                 }.padding(.horizontal, gutter)
                 if group.loadingMore { ProgressView().frame(maxWidth: .infinity) }
             } else {
                 ScrollView(.horizontal) {
                     LazyHStack(spacing: 40) {
-                        ForEach(group.items, id: \.key) { item in card(item).frame(width: 590) }
-                    }.padding(.horizontal, gutter).padding(.vertical, 24)
+                        ForEach(group.items, id: \.key) { item in  card(item).frame(width: 590)  }
+                     }.padding(.horizontal, gutter).padding(.vertical, 24)
                 }.scrollClipDisabled()
             }
         }.focusSection()
     }
 
     private func card(_ item: TMDBCatalog.Item) -> some View {
-        RouteLink { DiscoverDetailView(item: item) } label: { DiscoverTVSearchCard(item: item) }
+        RouteLink { DiscoverDetailView(item: item) } label: {  DiscoverTVSearchCard(item: item)  }
             .panelCardButton(cornerRadius: 24)
             .accessibilityIdentifier("discover.search.result.\(item.key)")
     }

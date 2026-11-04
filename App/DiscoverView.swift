@@ -50,27 +50,27 @@ struct DiscoverView: View {
     #endif
     @AppStorage("discover.hiddenSections") private var hiddenSections = ""
     private var featured: [TMDBCatalog.Item] { Array(model.items(.trending).filter { $0.poster != nil }.prefix(8)) }
-    var body: some View {
-        GeometryReader { proxy in
+    var body: some View { PerceptionView {
+        GeometryReader { proxy in PerceptionView {
             let heroHeight = DiscoverLayout.heroHeight(proxy.size.width)
             ZStack(alignment: .top) {
                 DiscoverHeroBackground(state: heroState, items: featured, width: proxy.size.width, height: heroHeight,
                                        active: onScreen && scenePhase == .active)
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 30) {
+                    LazyVStack(alignment: .leading, spacing: 30) { PerceptionView {
                         if featured.isEmpty, model.loading {
                             ProgressView().frame(maxWidth: .infinity).frame(height: min(proxy.size.width * 1.5, 660))
                         }
-                        ForEach(DiscoverSection.allCases.filter { !hiddenSections.split(separator: ",").contains(Substring($0.rawValue)) }) { section in
+                        ForEach(DiscoverSection.allCases.filter { !hiddenSections.split(separator: ",").contains(Substring($0.rawValue)) }) { section in PerceptionView {
                             sectionView(section, width: proxy.size.width)
-                        }
+                        } }
                         if !model.failures.isEmpty || model.collectionsFailed {
-                            Button { Task { await model.load() } } label: {
+                            Button { Task { await model.load() } } label: { PerceptionView {
                                 Label(L10n.text("Some lists couldn't load. Try again."), systemImage: "arrow.clockwise")
                                     #if !os(tvOS)
                                     .font(.subheadline).frame(maxWidth: .infinity).padding()
                                     #endif
-                            }
+                            } }
                             #if os(tvOS)
                             .controlButton().frame(maxWidth: .infinity)
                             #else
@@ -83,12 +83,12 @@ struct DiscoverView: View {
                                          // The failure row above already offers a retry.
                                          action: model.failures.isEmpty && !model.collectionsFailed ? L10n.text("Try Again") : nil) { Task { await model.load() } }
                         }
-                        Button { editing = true } label: {
+                        Button { editing = true } label: { PerceptionView {
                             Label(L10n.text("Edit Layout"), systemImage: "slider.horizontal.3")
                                 #if !os(tvOS)
                                 .font(.subheadline).padding(18).glassSurface(.regular, in: Capsule())
                                 #endif
-                        }
+                        } }
                         // On tvOS .plain lays its focus platter under the glass capsule; one glass control instead.
                         #if os(tvOS)
                         .controlButton()
@@ -101,20 +101,20 @@ struct DiscoverView: View {
                             Text(L10n.text("This product uses the TMDB API but is not endorsed or certified by TMDB."))
                                 .font(.caption2).foregroundStyle(.white.opacity(0.5))
                         }.padding(.horizontal, DiscoverLayout.gutter).padding(.vertical, 20)
-                    }
+                    } }
                     .padding(.bottom, 28)
-                    .background {
-                        GeometryReader { geometry in
+                    .background { PerceptionView {
+                        GeometryReader { geometry in PerceptionView {
                             Color.clear.preference(key: DiscoverScrollKey.self, value: -geometry.frame(in: .named("discoverScroll")).minY)
-                        }
-                    }
+                        } }
+                    } }
                 }
                 .coordinateSpace(name: "discoverScroll")
                 .modifier(DiscoverScrollObserver(offset: Binding(get: { heroState.scrollY }, set: { heroState.scrollY = $0 })))
-                .scrollIndicators(.hidden)
+                .compatibleScrollIndicators(.hidden)
                 .refreshable { await model.load(refresh: true) }
             }
-        }
+        } }
         .modifier(DiscoverHeroTheme(state: heroState))
         .navigationTitle("")
         #if !os(macOS)
@@ -131,7 +131,7 @@ struct DiscoverView: View {
             Button { searchShown = true } label: {
                 Image(systemName: "text.magnifyingglass").font(.system(size: 28))
                     .frame(width: 76, height: 76).glassSurface(.regular, in: Circle())
-            }.tileButton()
+             }.tileButton()
                 .focused($tvFocus, equals: .search)
                 .onMoveCommand { direction in
                     if direction == .down, !featured.isEmpty {
@@ -143,14 +143,14 @@ struct DiscoverView: View {
                 .padding(.trailing, 50)
                 .frame(maxWidth: .infinity, alignment: .trailing).focusSection()
                 .padding(.top, 50)
-        }
+         }
         #else
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button { searchShown = true } label: { Image(systemName: "text.magnifyingglass") }
+            ToolbarItem(placement: .primaryAction) { PerceptionView {
+                Button { searchShown = true } label: { PerceptionView { Image(systemName: "text.magnifyingglass") } }
                     .accessibilityLabel(L10n.text("Search Catalog"))
                     .accessibilityIdentifier("discover.home.search")
-            }
+            } }
         }
         #endif
         .modifier(DiscoverSearchPresentation(isPresented: $searchShown))
@@ -162,10 +162,10 @@ struct DiscoverView: View {
         .onAppear { onScreen = true }
         .onDisappear { onScreen = false }
         .task { await model.load() }
-        .sheet(isPresented: $editing) {
+        .sheet(isPresented: $editing) { PerceptionView {
             NavigationStack {
                 Form {
-                    ForEach(DiscoverSection.allCases) { section in
+                    ForEach(DiscoverSection.allCases) { section in PerceptionView {
                         Toggle(section.title, isOn: Binding(get: {
                             !hiddenSections.split(separator: ",").contains(Substring(section.rawValue))
                         }, set: { shown in
@@ -173,13 +173,13 @@ struct DiscoverView: View {
                             if shown { hidden.remove(section.rawValue) } else { hidden.insert(section.rawValue) }
                             hiddenSections = hidden.sorted().joined(separator: ",")
                         }))
-                    }
+                    } }
                 }
                 .navigationTitle(L10n.text("Edit Layout"))
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.text("Done")) { editing = false } } }
+                .toolbar { ToolbarItem(placement: .confirmationAction) { PerceptionView { Button(L10n.text("Done")) { editing = false } } } }
             }.preferredColorScheme(.dark).discoverSheetSize(width: 420, height: 560)
-        }
-    }
+        } }
+    } }
 
     @ViewBuilder private func sectionView(_ section: DiscoverSection, width: CGFloat) -> some View {
         switch section {
@@ -226,25 +226,25 @@ struct DiscoverView: View {
                                 PosterImage(url: person.profile, symbol: "person.fill").frame(width: 200, height: 200)
                                 Text(person.name).font(.system(size: 26, weight: .medium)).lineLimit(1).cardCaption()
                             }.frame(width: 200)
-                        }
+                         }
                         .cardButton(.circle)
                         .accessibilityIdentifier("discover.person.\(person.id)")
-                    }
+                     }
                 }
                 #else
                 DiscoverRail(arrowCenter: 41.5) {
-                    LazyHStack(alignment: .top, spacing: 14) {
-                        ForEach(people) { person in
+                    LazyHStack(alignment: .top, spacing: 14) { PerceptionView {
+                        ForEach(people) { person in PerceptionView {
                             RouteLink {
                                 DiscoverPersonView(id: person.id, name: person.name, profile: person.profile)
-                            } label: {
+                            } label: { PerceptionView {
                                 VStack(spacing: 7) {
                                     PosterImage(url: person.profile, symbol: "person.fill").frame(width: DiscoverLayout.personWidth, height: DiscoverLayout.personWidth).clipShape(Circle())
                                     Text(person.name).font(.system(size: DiscoverLayout.caption)).lineLimit(1)
                                 }.frame(width: DiscoverLayout.personWidth)
-                            }.tmdbCardButton()
-                        }
-                    }.padding(.horizontal, DiscoverLayout.gutter)
+                            } }.tmdbCardButton()
+                        } }
+                    } }.padding(.horizontal, DiscoverLayout.gutter)
                 }
                 #endif
             }
@@ -264,18 +264,18 @@ struct DiscoverView: View {
                             } else {
                                 DiscoverTVNetworkCard(brand: brand, items: Array(model.items(brand.feed).filter { $0.poster != nil }.prefix(9)))
                             }
-                        }.panelCardButton(cornerRadius: studio ? 20 : 24).accessibilityLabel(brand.name)
-                    }
+                         }.panelCardButton(cornerRadius: studio ? 20 : 24).accessibilityLabel(brand.name)
+                     }
                 }
                 #else
                 DiscoverRail {
-                    LazyHStack(spacing: 13) {
-                        ForEach(brands) { brand in
-                            RouteLink { DiscoverBrowseView(title: brand.name, filter: brand.feed.brandFilter, logo: brand.logo) } label: {
+                    LazyHStack(spacing: 13) { PerceptionView {
+                        ForEach(brands) { brand in PerceptionView {
+                            RouteLink { DiscoverBrowseView(title: brand.name, filter: brand.feed.brandFilter, logo: brand.logo) } label: { PerceptionView {
                                 DiscoverBrandCard(brand: brand, items: Array(model.items(brand.feed).prefix(4)), width: width)
-                            }.tmdbCardButton().accessibilityLabel(brand.name)
-                        }
-                    }.padding(.horizontal, DiscoverLayout.gutter)
+                            } }.tmdbCardButton().accessibilityLabel(brand.name)
+                        } }
+                    } }.padding(.horizontal, DiscoverLayout.gutter)
                 }
                 #endif
             }
@@ -290,26 +290,26 @@ struct DiscoverView: View {
                 ForEach(tvGenres) { genre in
                     RouteLink { DiscoverBrowseView(title: genre.title, filter: genre.filter) } label: {
                         DiscoverTVGenreCard(title: genre.title, posters: genre.posters)
-                    }.panelCardButton(cornerRadius: 20).accessibilityIdentifier("discover.genre.\(genre.id)")
-                }
+                     }.panelCardButton(cornerRadius: 20).accessibilityIdentifier("discover.genre.\(genre.id)")
+                 }
             }
             #else
             DiscoverRail {
                 HStack(spacing: 13) {
-                    ForEach([TMDBCatalog.Feed.family, .animation, .kids], id: \.self) { feed in
-                        RouteLink { DiscoverBrowseView(title: feed.title, filter: .genre(feed == .family ? 10751 : feed == .kids ? 10762 : 16, type: feed == .family ? .movie : .tv)) } label: {
+                    ForEach([TMDBCatalog.Feed.family, .animation, .kids], id: \.self) { feed in PerceptionView {
+                        RouteLink { DiscoverBrowseView(title: feed.title, filter: .genre(feed == .family ? 10751 : feed == .kids ? 10762 : 16, type: feed == .family ? .movie : .tv)) } label: { PerceptionView {
                             HStack(spacing: 15) {
                                 ZStack {
-                                    ForEach(Array(model.items(feed).prefix(3).enumerated()).reversed(), id: \.element.key) { index, item in
+                                    ForEach(Array(model.items(feed).prefix(3).enumerated()).reversed(), id: \.element.key) { index, item in PerceptionView {
                                         PosterImage(url: item.poster).frame(width: 49, height: 73).clipShape(RoundedRectangle(cornerRadius: 6))
                                             .rotationEffect(.degrees(Double(index) * 5)).offset(x: CGFloat(index) * 9)
-                                    }
+                                    } }
                                 }.frame(width: 72, height: 80)
                                 Text(feed.title).font(.system(size: 19, weight: .semibold))
                             }
                             .frame(width: 197, height: 92).background(.black.opacity(0.5), in: RoundedRectangle(cornerRadius: 22))
-                        }.tmdbCardButton()
-                    }
+                        } }.tmdbCardButton()
+                    } }
                 }.padding(.horizontal, DiscoverLayout.gutter)
             }
             #endif
@@ -338,17 +338,17 @@ struct DiscoverView: View {
             ForEach([TMDBCatalog.Feed.topTelevision, .topMovies], id: \.self) { feed in
                 RouteLink { DiscoverListView(feed: feed, initial: model.pages[feed]) } label: {
                     DiscoverTVRankingCard(title: feed.title, items: Array(model.items(feed).filter { $0.poster != nil }.prefix(18)))
-                }.panelCardButton(cornerRadius: 28).accessibilityIdentifier("discover.ranking.\(feed.rawValue)")
-            }
+                 }.panelCardButton(cornerRadius: 28).accessibilityIdentifier("discover.ranking.\(feed.rawValue)")
+             }
         }
         #else
         DiscoverRail {
             HStack(spacing: 13) {
-                ForEach([TMDBCatalog.Feed.topTelevision, .topMovies], id: \.self) { feed in
-                    RouteLink { DiscoverListView(feed: feed, initial: model.pages[feed]) } label: {
+                ForEach([TMDBCatalog.Feed.topTelevision, .topMovies], id: \.self) { feed in PerceptionView {
+                    RouteLink { DiscoverListView(feed: feed, initial: model.pages[feed]) } label: { PerceptionView {
                         DiscoverRankingCard(feed: feed, items: Array(model.items(feed).prefix(15)), width: min(width - 33, 520))
-                    }.tmdbCardButton()
-                }
+                    } }.tmdbCardButton()
+                } }
             }.padding(.horizontal, DiscoverLayout.gutter)
         }
         #endif
@@ -361,13 +361,13 @@ struct DiscoverView: View {
                 #if os(tvOS)
                 sectionHeading(feed.title)
                 #else
-                RouteLink { DiscoverListView(feed: feed, initial: model.pages[feed]) } label: {
+                RouteLink { DiscoverListView(feed: feed, initial: model.pages[feed]) } label: { PerceptionView {
                     HStack {
                         Text(feed.title).font(.system(size: DiscoverLayout.heading, weight: .semibold))
                         Spacer()
                         Image(systemName: "chevron.forward").font(.system(size: 14, weight: .semibold))
                     }.frame(height: DiscoverLayout.headingHeight, alignment: .top).contentShape(Rectangle())
-                }
+                } }
                 .buttonStyle(.plain).padding(.horizontal, DiscoverLayout.gutter)
                 .accessibilityIdentifier("discover.more.\(feed.rawValue)")
                 #endif
@@ -375,16 +375,16 @@ struct DiscoverView: View {
                 DiscoverTVShelf(feed: feed, items: items, initial: model.pages[feed], landscape: landscape)
                 #else
                 DiscoverRail(arrowCenter: landscape ? 50 : 87) {
-                    LazyHStack(alignment: .top, spacing: DiscoverLayout.spacing) {
-                        ForEach(items, id: \.key) { item in
-                            RouteLink { DiscoverDetailView(item: item) } label: {
+                    LazyHStack(alignment: .top, spacing: DiscoverLayout.spacing) { PerceptionView {
+                        ForEach(items, id: \.key) { item in PerceptionView {
+                            RouteLink { DiscoverDetailView(item: item) } label: { PerceptionView {
                                 DiscoverTile(item: item, landscape: landscape)
                                     .frame(width: landscape ? DiscoverLayout.landscapeWidth : DiscoverLayout.posterWidth)
-                            }
+                            } }
                             .tmdbCardButton()
                             .accessibilityIdentifier("discover.title.\(feed.rawValue).\(item.key)")
-                        }
-                    }.padding(.horizontal, DiscoverLayout.gutter)
+                        } }
+                    } }.padding(.horizontal, DiscoverLayout.gutter)
                 }
                 #endif
             }
@@ -399,18 +399,18 @@ struct DiscoverView: View {
                 LazyHStack(spacing: 50) {
                     ForEach(feeds.filter { !model.items($0).isEmpty }, id: \.self) { feed in
                         DiscoverTVCollection(feed: feed, items: Array(model.items(feed).prefix(10)))
-                    }
-                }.padding(.horizontal, DiscoverLayout.gutter).padding(.vertical, 24)
+                     }
+                 }.padding(.horizontal, DiscoverLayout.gutter).padding(.vertical, 24)
             }.scrollClipDisabled().focusSection()
             #else
             DiscoverRail {
                 HStack(spacing: 13) {
-                    ForEach(feeds, id: \.self) { feed in
+                    ForEach(feeds, id: \.self) { feed in PerceptionView {
                         if !model.items(feed).isEmpty {
                             DiscoverCollection(feed: feed, items: Array(model.items(feed).prefix(8)))
                                 .frame(width: min(width - 33, 520))
                         }
-                    }
+                    } }
                 }.padding(.horizontal, DiscoverLayout.gutter)
             }
             #endif
@@ -434,14 +434,14 @@ struct DiscoverView: View {
 
 private struct DiscoverHeroTheme: ViewModifier {
     let state: DiscoverHeroState
-    func body(content: Content) -> some View {
+    func body(content: Content) -> some View { PerceptionView {
         #if os(tvOS)
         content.foregroundStyle(.white).environment(\.colorScheme, .dark)
         #else
         content.foregroundStyle(state.paint?.isDark == false ? Color.black : Color.white)
             .environment(\.colorScheme, state.paint?.isDark == false ? .light : .dark)
         #endif
-    }
+    } }
 }
 
 private struct DiscoverHeroBackground: View {
@@ -451,7 +451,7 @@ private struct DiscoverHeroBackground: View {
     let height: CGFloat
     let active: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    var body: some View {
+    var body: some View { PerceptionView {
         Group {
             if state.dragging, !items.isEmpty {
                 let position = min(max(state.pageProgress, 0), CGFloat(items.count - 1))
@@ -501,7 +501,7 @@ private struct DiscoverHeroBackground: View {
                     }
                 }
             }
-    }
+    } }
 }
 
 private struct DiscoverHeroCarousel: View {
@@ -514,7 +514,7 @@ private struct DiscoverHeroCarousel: View {
     #if os(tvOS)
     var tvFocus: FocusState<DiscoverTVFocus?>.Binding
     #endif
-    var body: some View {
+    var body: some View { PerceptionView {
         let height = DiscoverLayout.heroHeight(width)
         let selectedID = state.id ?? items.first?.key
         ZStack(alignment: .bottom) {
@@ -531,7 +531,7 @@ private struct DiscoverHeroCarousel: View {
             RouteLink { DiscoverDetailView(item: items[index]) } label: {
                 DiscoverHero(item: items[index], details: state.details[items[index].key])
                     .frame(width: width, height: height)
-            }
+             }
             .buttonStyle(.plain).id(items[index].key).transition(.opacity)
             .accessibilityIdentifier("discover.hero.\(items[index].key)")
             .overlay {
@@ -540,24 +540,24 @@ private struct DiscoverHeroCarousel: View {
                     Spacer()
                     heroArrow("chevron.right", label: L10n.text("Next"), to: index + 1)
                 }.padding(.horizontal, 20).opacity(hovering ? 1 : 0).animation(.easeOut(duration: 0.2), value: hovering)
-            }
+             }
             .onHover { hovering = $0 }
             #else
             ScrollView(.horizontal) {
-                LazyHStack(spacing: 0) {
-                    ForEach(items, id: \.key) { item in
-                        RouteLink { DiscoverDetailView(item: item) } label: {
+                LazyHStack(spacing: 0) { PerceptionView {
+                    ForEach(items, id: \.key) { item in PerceptionView {
+                        RouteLink { DiscoverDetailView(item: item) } label: { PerceptionView {
                             DiscoverHero(item: item, details: state.details[item.key])
                                 .frame(width: width, height: height)
-                        }
+                        } }
                         .buttonStyle(.plain).id(item.key)
                         .accessibilityIdentifier("discover.hero.\(item.key)")
-                    }
-                }.scrollTargetLayout()
+                    } }
+                } }.compatibleScrollTargetLayout()
             }
             .scrollTargetBehavior(.paging)
-            .scrollPosition(id: Binding(get: { state.id ?? items.first?.key }, set: { state.id = $0 }))
-            .scrollIndicators(.hidden)
+            .compatibleScrollPosition(id: Binding(get: { state.id ?? items.first?.key }, set: { state.id = $0 }))
+            .compatibleScrollIndicators(.hidden)
             #endif
             #if os(iOS)
             DiscoverPageControl(count: items.count, selection: Binding(get: {
@@ -571,23 +571,23 @@ private struct DiscoverHeroCarousel: View {
             // The tvOS pager supplies a focusable group of page dots.
             #else
             HStack(spacing: 8) {
-                ForEach(items, id: \.key) { item in
+                ForEach(items, id: \.key) { item in PerceptionView {
                     Button {
                         withAnimation(.easeInOut(duration: 0.35)) { state.id = item.key }
-                    } label: {
+                    } label: { PerceptionView {
                         Circle().fill(Color.primary.opacity(item.key == (state.id ?? items.first?.key) ? 1 : 0.3))
                             .frame(width: 7, height: 7).frame(width: 18, height: 24).contentShape(Rectangle())
-                    }
+                    } }
                     .buttonStyle(.plain)
                     .accessibilityLabel(item.name)
                     .accessibilityIdentifier("discover.pageDot.\(item.key)")
                     .accessibilityAddTraits(item.key == (state.id ?? items.first?.key) ? [.isSelected] : [])
-                }
+                } }
             }.padding(.bottom, 0)
             #endif
         }
         .frame(height: height)
-    }
+    } }
 
     #if os(macOS)
     private func heroArrow(_ symbol: String, label: String, to index: Int) -> some View {
@@ -595,7 +595,7 @@ private struct DiscoverHeroCarousel: View {
             withAnimation(.easeInOut(duration: 0.35)) { state.id = items[(index + items.count) % items.count].key }
         } label: {
             Image(systemName: symbol).font(.system(size: 17, weight: .semibold)).frame(width: 44, height: 44).glassSurface(.regular, in: Circle())
-        }.buttonStyle(.plain).accessibilityLabel(label)
+         }.buttonStyle(.plain).accessibilityLabel(label)
     }
     #endif
 }
@@ -731,7 +731,7 @@ struct DiscoverRail<Content: View>: View {
         #if os(macOS)
         ScrollStrip(leftLabel: "Previous", rightLabel: "Next", overlayArrows: true, arrowCenter: arrowCenter) { content }
         #else
-        ScrollView(.horizontal) { content }.scrollIndicators(.hidden)
+        ScrollView(.horizontal) { content }.compatibleScrollIndicators(.hidden)
         #endif
     }
 }
@@ -854,7 +854,7 @@ private struct DiscoverCollection: View {
                             }.tmdbCardButton()
                         }
                     }.padding(.horizontal, 20).padding(.top, 20)
-                }.scrollIndicators(.hidden).frame(height: 180, alignment: .top)
+                }.compatibleScrollIndicators(.hidden).frame(height: 180, alignment: .top)
             }
             .frame(width: 450, height: 450)
             .background(paint?.color ?? Color(white: 0.12))

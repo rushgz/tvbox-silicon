@@ -21,7 +21,7 @@ struct EpisodeSkipSettingsView: View {
         return draft.validationError(duration: session.duration)
     }
 
-    var body: some View {
+    var body: some View { PerceptionView {
         NavigationStack {
             Form {
                 Section {
@@ -58,14 +58,14 @@ struct EpisodeSkipSettingsView: View {
             }
             .navigationTitle(L10n.text("Skip intro / outro"))
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button(L10n.text("Cancel")) { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
+                ToolbarItem(placement: .cancellationAction) { PerceptionView { Button(L10n.text("Cancel")) { dismiss() } } }
+                ToolbarItem(placement: .confirmationAction) { PerceptionView {
                     Button(L10n.text("Save")) {
                         if let draft { session.applySkipSettings(draft); dismiss() }
                     }
                     .disabled(draft == nil || (enabled && issue != nil))
                     .accessibilityIdentifier("player.skip.save")
-                }
+                } }
             }
         }
         .onAppear {
@@ -81,7 +81,7 @@ struct EpisodeSkipSettingsView: View {
         #else
         .presentationDetents([.large])
         #endif
-    }
+    } }
 
     private func timeField(_ title: String, text: Binding<String>, identifier: String) -> some View {
         TextField(title, text: text, prompt: Text("01:30"))

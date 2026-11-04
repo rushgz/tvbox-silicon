@@ -8,7 +8,7 @@ struct RuntimeView: View {
     @State private var probe: JarReport?
     @State private var error: String?
     private let runtime = JarRuntime()
-    var body: some View {
+    var body: some View { PerceptionView {
         SettingsPage(title: L10n.text("JAR Runtime"), symbol: "cpu") {
             #if os(iOS) || os(tvOS)
             SettingsGroup(title: L10n.text("On-device Plugin Runtime"),
@@ -45,7 +45,7 @@ struct RuntimeView: View {
             }
             if let error { Label(error, systemImage: "exclamationmark.triangle.fill").font(.callout).foregroundStyle(Brand.amber) }
         }
-    }
+    } }
     private var probeSummary: String? {
         guard let probe else { return nil }
         if probe.status == 0 && probe.value == 42 && probe.instructions > 0 {

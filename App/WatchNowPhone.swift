@@ -18,27 +18,27 @@ struct WatchNowPhonePage: View {
         return Array(store.playbackHistory.entries.filter { !$0.completed }.prefix(5))
     }
 
-    var body: some View {
+    var body: some View { PerceptionView {
         let entries = upNext
-        GeometryReader { proxy in
+        GeometryReader { proxy in PerceptionView {
             let heroHeight = DiscoverLayout.heroHeight(proxy.size.width)
             ZStack(alignment: .top) {
                 WatchNowPhoneBackdrop(state: hero, width: proxy.size.width, height: heroHeight)
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 30) {
+                    LazyVStack(alignment: .leading, spacing: 30) { PerceptionView {
                         if !entries.isEmpty {
                             WatchNowPhoneHero(entries: entries, state: hero, width: proxy.size.width, height: heroHeight)
                                 .modifier(WatchNowPhoneTheme(state: hero))
                         }
                         rows
-                    }
+                    } }
                     .padding(.top, entries.isEmpty ? 8 : 0)
                     .padding(.bottom, 28)
-                    .background {
-                        GeometryReader { geometry in
+                    .background { PerceptionView {
+                        GeometryReader { geometry in PerceptionView {
                             Color.clear.preference(key: DiscoverScrollKey.self, value: -geometry.frame(in: .named("watchNowScroll")).minY)
-                        }
-                    }
+                        } }
+                    } }
                 }
                 .coordinateSpace(name: "watchNowScroll")
                 .modifier(DiscoverScrollObserver(offset: Binding(get: { hero.scrollY }, set: { value in
@@ -47,10 +47,10 @@ struct WatchNowPhonePage: View {
                     let past = value > heroHeight - 140
                     if pastHero != past { pastHero = past }
                 })))
-                .scrollIndicators(.hidden)
+                .compatibleScrollIndicators(.hidden)
             }
             .task(id: entries.map(\.id)) { await hero.load(entries) }
-        }
+        } }
         // Over the hero the page has no title, as Discover; without one it keeps its name.
         .navigationTitle(entries.isEmpty ? L10n.text("Watch Now") : "")
         #if os(iOS)
@@ -60,12 +60,12 @@ struct WatchNowPhonePage: View {
         .toolbarColorScheme(entries.isEmpty || pastHero || hero.paint == nil ? nil : hero.paint?.isDark == false ? .light : .dark, for: .navigationBar)
         #endif
         .ignoresSafeArea(edges: entries.isEmpty ? [] : .top)
-    }
+    } }
 
     @ViewBuilder private var rows: some View {
         if sections.contains(.continueWatching), !store.playbackHistory.entries.isEmpty {
             WatchNowPhoneShelf(title: L10n.text("Continue Watching"), action: { store.section = .history }) {
-                ForEach(store.playbackHistory.entries.prefix(12)) { HistoryCard(entry: $0) }
+                ForEach(store.playbackHistory.entries.prefix(12)) { trackedValue0 in PerceptionView { HistoryCard(entry: trackedValue0) } }
             }
             .accessibilityIdentifier("home.continueWatching")
         }
@@ -74,13 +74,13 @@ struct WatchNowPhonePage: View {
             if !pinned.isEmpty {
                 VStack(alignment: .leading, spacing: 0) {
                     WatchNowPhoneHeading(title: L10n.text("Pinned Sources"), action: { store.section = .sites })
-                    LazyVGrid(columns: Layout.cardColumns, spacing: Layout.cardSpacing) {
-                        ForEach(pinned) { site in
-                            RouteLink { SiteView(site: site, origin: config.origin, jarURL: config.spiderURL) } label: { SiteCard(site: site, marksPinned: false) }
-                                .tileButton().contextMenu { PinSourceButton(site: site, origin: config.origin) }
+                    LazyVGrid(columns: Layout.cardColumns, spacing: Layout.cardSpacing) { PerceptionView {
+                        ForEach(pinned) { site in PerceptionView {
+                            RouteLink { SiteView(site: site, origin: config.origin, jarURL: config.spiderURL) } label: { PerceptionView { SiteCard(site: site, marksPinned: false) } }
+                                .tileButton().contextMenu { PerceptionView { PinSourceButton(site: site, origin: config.origin) } }
                                 .accessibilityIdentifier("home.pinned." + site.key)
-                        }
-                    }
+                        } }
+                    } }
                     .padding(.horizontal, DiscoverLayout.gutter)
                 }
                 .accessibilityIdentifier("home.pinnedSources")
@@ -89,7 +89,7 @@ struct WatchNowPhonePage: View {
         if sections.contains(.recommendations) { RecommendationsView(config: config, rails: true) }
         if sections.contains(.favorites), !store.favorites.items.isEmpty {
             WatchNowPhoneShelf(title: L10n.text("Favorites"), action: { store.section = .favorites }) {
-                ForEach(Array(store.favorites.items.prefix(20))) { WatchNowPhoneFavorite(item: $0) }
+                ForEach(Array(store.favorites.items.prefix(20))) { trackedValue0 in PerceptionView { WatchNowPhoneFavorite(item: trackedValue0) } }
             }
         }
         if sections.contains(.liveTV), !config.lives.isEmpty {
@@ -108,10 +108,10 @@ struct WatchNowPhonePage: View {
 /// background.
 private struct WatchNowPhoneTheme: ViewModifier {
     let state: WatchNowHeroState
-    func body(content: Content) -> some View {
+    func body(content: Content) -> some View { PerceptionView {
         content.foregroundStyle(state.paint?.isDark == false ? Color.black : Color.white)
             .environment(\.colorScheme, state.paint?.isDark == false ? .light : .dark)
-    }
+    } }
 }
 
 /// The shown title's cover behind the hero, in the cover's own colour, fading into the app's background below it as on
@@ -124,7 +124,7 @@ private struct WatchNowPhoneBackdrop: View {
     /// How far below the hero's foot the colour fades out.
     private static let fade: CGFloat = 90
 
-    var body: some View {
+    var body: some View { PerceptionView {
         ZStack(alignment: .top) {
             Backdrop()
             ZStack(alignment: .top) {
@@ -140,7 +140,7 @@ private struct WatchNowPhoneBackdrop: View {
         .discoverFullBleed()
         .accessibilityHidden(true)
         .allowsHitTesting(false)
-    }
+    } }
 
     private func layer(_ paint: DiscoverPaint) -> some View {
         let total = height + Self.fade
@@ -151,13 +151,13 @@ private struct WatchNowPhoneBackdrop: View {
                 .frame(width: width, height: height)
                 .scaleEffect(1 + pull / max(height, 1), anchor: .top)
                 .frame(width: width, height: height, alignment: .top).clipped()
-                .mask {
+                .mask { PerceptionView {
                     LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.72),
                                            .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom)
-                }
+                } }
         }
         .frame(width: width, height: total + pull, alignment: .top)
-        .mask {
+        .mask { PerceptionView {
             // An eased fade, so the colour leaves gradually rather than at a line.
             let start = (height * 0.7 + pull) / (total + pull)
             LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: start),
@@ -165,7 +165,7 @@ private struct WatchNowPhoneBackdrop: View {
                                    .init(color: .black.opacity(0.35), location: start + (1 - start) * 0.62),
                                    .init(color: .black.opacity(0.1), location: start + (1 - start) * 0.85),
                                    .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom)
-        }
+        } }
         .offset(y: -max(0, state.scrollY))
     }
 }
@@ -189,7 +189,7 @@ private struct WatchNowPhoneHero: View {
 
     private var selectedID: String? { state.selected ?? entries.first?.id }
 
-    var body: some View {
+    var body: some View { PerceptionView {
         ZStack(alignment: .bottom) {
             #if os(macOS)
             // One title at a time, as Discover on the Mac: in the split view's detail a horizontal scroll view takes
@@ -206,29 +206,25 @@ private struct WatchNowPhoneHero: View {
                         }
                         .padding(.horizontal, 20).opacity(hovering ? 1 : 0).animation(.easeOut(duration: 0.2), value: hovering)
                     }
-                }
+                 }
                 .onHover { hovering = $0 }
             #else
-            ScrollView(.horizontal) {
-                LazyHStack(spacing: 0) {
-                    ForEach(entries) { entry in
-                        page(entry).frame(width: width, height: height).id(entry.id)
-                    }
-                }
-                .scrollTargetLayout()
-            }
-            .scrollTargetBehavior(.paging)
-            .scrollPosition(id: Binding(get: { selectedID }, set: { id in
+            TabView(selection: Binding(get: { selectedID }, set: { id in
                 guard let id, id != state.selected else { return }
                 withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.35)) { state.selected = id }
-            }))
-            .scrollIndicators(.hidden)
+            })) {
+                ForEach(entries) { entry in
+                    PerceptionView { page(entry).frame(width: width, height: height) }
+                        .tag(Optional(entry.id))
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
             #endif
             if entries.count > 1 { dots.padding(.bottom, 8) }
         }
         .frame(height: height)
         .accessibilityIdentifier("home.upNext")
-    }
+    } }
 
     private func page(_ entry: PlaybackHistoryEntry) -> some View {
         let details = state.details[entry.id]
@@ -252,19 +248,19 @@ private struct WatchNowPhoneHero: View {
             if entry.duration > 0 {
                 HStack(spacing: 8) {
                     Capsule().fill(.primary.opacity(0.25)).frame(width: 90, height: 4)
-                        .overlay(alignment: .leading) { Capsule().fill(.primary).frame(width: 90 * entry.progress) }
+                        .overlay(alignment: .leading) { PerceptionView { Capsule().fill(.primary).frame(width: 90 * entry.progress) } }
                     Text(HistoryFormat.status(entry)).font(.system(size: 12).monospacedDigit()).opacity(0.75)
                 }
                 .padding(.top, 8)
             }
-            Button { resume(entry) } label: {
+            Button { resume(entry) } label: { PerceptionView {
                 Label(L10n.text("Resume"), systemImage: store.resumingHistoryID == entry.id ? "hourglass" : "play.fill")
                     .font(.system(size: 16, weight: .semibold))
                     .padding(.horizontal, 28).frame(height: 44)
                     .foregroundStyle(dark ? Color.black : Color.white)
                     .background(dark ? Color.white : Color.black, in: Capsule())
                     .contentShape(Capsule())
-            }
+            } }
             .buttonStyle(.plain)
             .padding(.top, 18)
             .accessibilityIdentifier("home.upNext.resume")
@@ -297,24 +293,24 @@ private struct WatchNowPhoneHero: View {
             withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.35)) { state.selected = entries[(index + entries.count) % entries.count].id }
         } label: {
             Image(systemName: symbol).font(.system(size: 17, weight: .semibold)).frame(width: 44, height: 44).glassSurface(.regular, in: Circle())
-        }
+         }
         .buttonStyle(.plain).accessibilityLabel(label)
     }
     #endif
 
     private var dots: some View {
         HStack(spacing: 0) {
-            ForEach(entries) { entry in
+            ForEach(entries) { entry in PerceptionView {
                 Button {
                     withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.35)) { state.selected = entry.id }
-                } label: {
+                } label: { PerceptionView {
                     Circle().fill(.primary.opacity(entry.id == selectedID ? 1 : 0.3))
                         .frame(width: 7, height: 7).frame(width: 18, height: 24).contentShape(Rectangle())
-                }
+                } }
                 .buttonStyle(.plain)
                 .accessibilityLabel(entry.context.videoName)
                 .accessibilityAddTraits(entry.id == selectedID ? [.isSelected] : [])
-            }
+            } }
         }
     }
 }
@@ -427,22 +423,22 @@ private struct WatchNowPhoneFavorite: View {
     @Environment(Store.self) private var store
     let item: FavoriteItem
 
-    var body: some View {
+    var body: some View { PerceptionView {
         switch item {
         case .video(let video):
             let cover = WatchNowPhoneCover(title: video.videoName, detail: SourceLabel(video.sourceName).text, poster: video.poster, headers: video.posterHeaders)
             if let listing = video.listingVideo(), let client = store.catalogClient(for: video) {
-                RouteLink { VideoDetailView(video: listing, client: client) } label: { cover }
-                    .tmdbCardButton().contextMenu { FavoriteMenuButton(item: item, name: video.videoName) }
+                RouteLink { VideoDetailView(video: listing, client: client) } label: { PerceptionView { cover } }
+                    .tmdbCardButton().contextMenu { PerceptionView { FavoriteMenuButton(item: item, name: video.videoName) } }
             } else {
-                Button { store.reportMissingFavoriteSource() } label: { cover }
-                    .tmdbCardButton().contextMenu { FavoriteMenuButton(item: item, name: video.videoName) }
+                Button { store.reportMissingFavoriteSource() } label: { PerceptionView { cover } }
+                    .tmdbCardButton().contextMenu { PerceptionView { FavoriteMenuButton(item: item, name: video.videoName) } }
             }
         case .episode(let episode):
-            Button { store.play(episode) } label: {
+            Button { store.play(episode) } label: { PerceptionView {
                 WatchNowPhoneCover(title: episode.video.videoName, detail: episode.episodeName, poster: episode.video.poster, headers: episode.video.posterHeaders)
-            }
-            .tmdbCardButton().contextMenu { FavoriteMenuButton(item: item, name: episode.video.videoName) }
+            } }
+            .tmdbCardButton().contextMenu { PerceptionView { FavoriteMenuButton(item: item, name: episode.video.videoName) } }
         case .live(let channel):
             plate(title: channel.name, detail: channel.displayGroup, action: { store.playing = channel }) {
                 ChannelLogo(channel: channel, size: 64)
@@ -457,7 +453,7 @@ private struct WatchNowPhoneFavorite: View {
                 Image(systemName: cloud.symbol).font(.system(size: 40, weight: .medium)).foregroundStyle(cloud.tint)
             }
         }
-    }
+    } }
 
     private var name: String {
         switch item {
@@ -469,19 +465,19 @@ private struct WatchNowPhoneFavorite: View {
         }
     }
 
-    private func plate<Art: View>(title: String, detail: String, action: @escaping () -> Void, @ViewBuilder art: () -> Art) -> some View {
+    private func plate<Art: View>(title: String, detail: String, action: @escaping () -> Void, @ViewBuilder art: @escaping () -> Art) -> some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 0) {
                 RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.primary.opacity(0.08))
                     .aspectRatio(2.0 / 3, contentMode: .fit)
-                    .overlay { art() }
+                    .overlay { PerceptionView { art() } }
                 WatchNowPhoneCaption(title: title, detail: detail)
             }
             .frame(width: WatchNowPhoneCover.width)
             .accessibilityElement(children: .combine)
         }
         .tmdbCardButton()
-        .contextMenu { FavoriteMenuButton(item: item, name: name) }
+        .contextMenu { PerceptionView { FavoriteMenuButton(item: item, name: name) } }
     }
 }
 
@@ -495,7 +491,7 @@ struct WatchNowPhoneCategoryRail: View {
     private var isIndex: Bool { (client.site.raw["indexs"]?.int ?? 0) == 1 }
     private var key: String { WatchNowRows.key(category: category, client: client) }
 
-    var body: some View {
+    var body: some View { PerceptionView {
         let row = WatchNowRows.shared.rows[key]
         Group {
             if let row, row.videos.isEmpty {
@@ -506,14 +502,14 @@ struct WatchNowPhoneCategoryRail: View {
                     WatchNowPhoneHeading(title: title, route: seeAll)
                     if let row {
                         WatchNowPhoneRow {
-                            ForEach(row.videos.prefix(20)) { video in
+                            ForEach(row.videos.prefix(20)) { video in PerceptionView {
                                 let cover = WatchNowPhoneCover(title: video.name, detail: video.remarks, poster: video.poster, headers: video.posterHeaders)
                                 if isIndex {
-                                    Button { store.searchVideos(video.name) } label: { cover }.tmdbCardButton()
+                                    Button { store.searchVideos(video.name) } label: { PerceptionView { cover } }.tmdbCardButton()
                                 } else {
-                                    RouteLink { CatalogDestination(video: video, client: client) } label: { cover }.tmdbCardButton()
+                                    RouteLink { CatalogDestination(video: video, client: client) } label: { PerceptionView { cover } }.tmdbCardButton()
                                 }
-                            }
+                            } }
                         }
                     } else {
                         WatchNowPhoneSkeletonRow()
@@ -522,6 +518,6 @@ struct WatchNowPhoneCategoryRail: View {
             }
         }
         .task(id: key) { WatchNowRows.shared.load(category: category, client: client) }
-    }
+    } }
 }
 #endif

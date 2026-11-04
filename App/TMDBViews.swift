@@ -182,7 +182,7 @@ extension TMDBMatch.Details {
 /// While the lookup runs: what it is doing. When it found several works: which one it is. Otherwise nothing.
 struct TMDBLookupStatus: View {
     let lookup: TMDBLookup
-    var body: some View {
+    var body: some View { PerceptionView {
         switch lookup.phase {
         case .looking:
             HStack(spacing: 12) {
@@ -206,13 +206,13 @@ struct TMDBLookupStatus: View {
         default:
             EmptyView()
         }
-    }
+    } }
 }
 
 /// "Which one is it?": the works TMDB has under this name, to choose from.
 struct TMDBChoices: View {
     let lookup: TMDBLookup
-    var body: some View {
+    var body: some View { PerceptionView {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -225,13 +225,13 @@ struct TMDBChoices: View {
             }
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: TMDBMetrics.spacing) {
-                    ForEach(lookup.candidates) { candidate in
-                        Button { Task { await lookup.choose(candidate.mediaType, id: candidate.id, season: nil) } } label: {
+                    ForEach(lookup.candidates) { candidate in PerceptionView {
+                        Button { Task { await lookup.choose(candidate.mediaType, id: candidate.id, season: nil) } } label: { PerceptionView {
                             TMDBCandidateTile(candidate: candidate)
-                        }
+                        } }
                         .tmdbCardButton()
-                    }
-                    Button { Task { await lookup.reject() } } label: {
+                    } }
+                    Button { Task { await lookup.reject() } } label: { PerceptionView {
                         VStack(spacing: 8) {
                             Image(systemName: "xmark").font(.title3.weight(.semibold))
                             Text(L10n.text("None of These")).font(.caption.weight(.semibold)).multilineTextAlignment(.center)
@@ -239,17 +239,17 @@ struct TMDBChoices: View {
                         .foregroundStyle(.secondary)
                         .frame(width: TMDBMetrics.candidate, height: TMDBMetrics.candidate * 1.5)
                         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    }
+                    } }
                     .panelCardButton(cornerRadius: 10)
                 }
                 .padding(.vertical, TMDBMetrics.focusRoom)
             }
-            .scrollIndicators(.never)
+            .compatibleScrollIndicators(.never)
             .scrollClipDisabled()
         }
         .padding(14)
         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
+    } }
 }
 
 struct TMDBCandidateTile: View {
@@ -332,7 +332,7 @@ struct TMDBCastRow: View {
                     }
                 }
             }
-            .scrollIndicators(.never)
+            .compatibleScrollIndicators(.never)
         }
     }
 }
@@ -354,7 +354,7 @@ struct TMDBRelatedRow: View {
                 }
                 .padding(.vertical, TMDBMetrics.focusRoom)
             }
-            .scrollIndicators(.never)
+            .compatibleScrollIndicators(.never)
             .scrollClipDisabled()
         }
     }
@@ -397,7 +397,7 @@ struct TMDBFooter: View {
     let lookup: TMDBLookup
     let title: String
     @State private var choosing = false
-    var body: some View {
+    var body: some View { PerceptionView {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 TMDBBadge()
@@ -419,11 +419,11 @@ struct TMDBFooter: View {
         #endif
         #if os(tvOS)
         // A page of posters: a sheet with a list was a small box in the middle of the screen.
-        .fullScreenCover(isPresented: $choosing) { TMDBTVPicker(lookup: lookup, title: title) }
+        .fullScreenCover(isPresented: $choosing) {  TMDBTVPicker(lookup: lookup, title: title)  }
         #else
-        .sheet(isPresented: $choosing) { TMDBPicker(lookup: lookup, title: title) }
+        .sheet(isPresented: $choosing) { PerceptionView { TMDBPicker(lookup: lookup, title: title) } }
         #endif
-    }
+    } }
 }
 
 /// Choose the work by hand: the other candidates, a search of TMDB, or none.
@@ -439,25 +439,25 @@ struct TMDBPicker: View {
         _query = State(initialValue: title)
     }
 
-    var body: some View {
+    var body: some View { PerceptionView {
         NavigationStack {
             List {
                 if !lookup.candidates.isEmpty && results.isEmpty {
                     Section(L10n.text("Suggestions")) {
-                        ForEach(lookup.candidates) { candidate in
+                        ForEach(lookup.candidates) { candidate in PerceptionView {
                             row(name: candidate.name, year: candidate.year, type: candidate.mediaType, poster: candidate.poster) {
                                 await lookup.choose(candidate.mediaType, id: candidate.id, season: nil)
                             }
-                        }
+                        } }
                     }
                 }
                 if !results.isEmpty {
                     Section(L10n.text("TMDB")) {
-                        ForEach(results) { result in
+                        ForEach(results) { result in PerceptionView {
                             row(name: result.name, year: result.year, type: result.mediaType, poster: result.poster) {
                                 await lookup.choose(result.mediaType, id: result.id, season: nil)
                             }
-                        }
+                        } }
                     }
                 }
                 Section {
@@ -468,18 +468,18 @@ struct TMDBPicker: View {
             .searchable(text: $query, prompt: L10n.text("Search TMDB"))
             #endif
             .onSubmit(of: .search) { Task { await search() } }
-            .overlay { if searching { ProgressView() } }
+            .overlay { PerceptionView { if searching { ProgressView() } } }
             .navigationTitle(L10n.text("Not This Title?"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button(L10n.text("Cancel")) { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { PerceptionView { Button(L10n.text("Cancel")) { dismiss() } } } }
             .task { if lookup.candidates.isEmpty { await search() } }
         }
         #if os(macOS)
         .frame(minWidth: 420, minHeight: 520)
         #endif
-    }
+    } }
 
     private func search() async {
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -490,7 +490,7 @@ struct TMDBPicker: View {
     }
 
     private func row(name: String, year: Int?, type: TMDBMatch.MediaType, poster: URL?, choose: @escaping () async -> Void) -> some View {
-        Button { Task { await choose(); dismiss() } } label: {
+        Button { Task { await choose(); dismiss() } } label: { PerceptionView {
             HStack(spacing: 12) {
                 PosterImage(url: poster).frame(width: 44, height: 66).clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
@@ -499,7 +499,7 @@ struct TMDBPicker: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
-        }
+        } }
     }
 }
 
@@ -552,7 +552,7 @@ struct TMDBTVPicker: View {
             guard !Task.isCancelled else { return }
             await search()
         }
-    }
+     }
 
     private func shelf(_ title: String, _ tiles: [(String, TMDBCandidateTile, TMDBMatch.MediaType, Int)]) -> some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -560,10 +560,10 @@ struct TMDBTVPicker: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: TMDBMetrics.candidate), spacing: TMDBMetrics.spacing, alignment: .top)],
                       alignment: .leading, spacing: TMDBMetrics.spacing) {
                 ForEach(tiles, id: \.0) { tile in
-                    Button { Task { await lookup.choose(tile.2, id: tile.3, season: nil); dismiss() } } label: { tile.1 }
+                    Button { Task { await lookup.choose(tile.2, id: tile.3, season: nil); dismiss() } } label: {  tile.1  }
                         .tmdbCardButton()
-                }
-            }
+                 }
+             }
             .tvFocusSection()
         }
     }

@@ -129,28 +129,28 @@ struct MoreView: View {
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     private var slots: Int { PhoneTabs.slots(horizontal: horizontalSizeClass, vertical: verticalSizeClass) }
 
-    var body: some View {
+    var body: some View { PerceptionView {
         let tabs = PhoneTabs(stored: storedTabs).arranged(slots: slots, hiding: store.hiddenSections)
         ScrollView {
             VStack(spacing: 12) {
                 // Pairs; an odd last tile spans the row instead of leaving a hole.
-                ForEach(Array(stride(from: 0, to: tabs.more.count, by: 2)), id: \.self) { start in
+                ForEach(Array(stride(from: 0, to: tabs.more.count, by: 2)), id: \.self) { start in PerceptionView {
                     HStack(spacing: 12) {
                         let row = tabs.more[start..<min(start + 2, tabs.more.count)]
-                        ForEach(row) { section in
+                        ForEach(row) { section in PerceptionView {
                             MoreTile(section: section, count: count(section),
                                      badge: badge(section), wide: row.count == 1)
-                        }
+                        } }
                     }
                     .fixedSize(horizontal: false, vertical: true)
-                }
+                } }
             }
             .pageContainer()
         }
-        .scrollIndicators(.hidden)
+        .compatibleScrollIndicators(.hidden)
         .screenBackdrop()
         .screenTitle(L10n.text("More"))
-    }
+    } }
 
     private func badge(_ section: AppSection) -> Bool {
         switch section {
@@ -198,7 +198,7 @@ private struct MoreTile: View {
                             .font(.system(size: 26, weight: .bold, design: .rounded))
                             .monospacedDigit().lineLimit(1)
                             .foregroundStyle(.primary)
-                            .contentTransition(.numericText())
+                            .compatibleContentTransition(.numericText)
                     }
                 }
                 Spacer(minLength: 0)
@@ -229,9 +229,9 @@ struct EditTabBarRow: View {
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     private var slots: Int { PhoneTabs.slots(horizontal: horizontalSizeClass, vertical: verticalSizeClass) }
 
-    var body: some View {
+    var body: some View { PerceptionView {
         if PhoneTabs.inUse(horizontal: horizontalSizeClass) {
-            Button { editing = true } label: {
+            Button { editing = true } label: { PerceptionView {
                 HStack(spacing: 8) {
                     FormLabel(symbol: "arrow.up.arrow.down", title: L10n.text("Edit Tab Bar"),
                               subtitle: L10n.text("Choose your tabs and their order."))
@@ -239,19 +239,19 @@ struct EditTabBarRow: View {
                     Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
                 }
                 .contentShape(Rectangle())
-            }
+            } }
             // A button in a list draws its title in the tint; this one reads like the rows around it.
             .tint(.primary)
-            .sheet(isPresented: $editing) {
+            .sheet(isPresented: $editing) { PerceptionView {
                 TabBarEditor(tabs: PhoneTabs(stored: storedTabs).arranged(slots: slots, hiding: store.hiddenSections),
                              slots: slots) { storedTabs = $0.stored }
-            }
+            } }
             #if DEBUG
             // `-qaEditTabs 1` opens the editor for screenshots once Settings is shown.
             .onAppear { if UserDefaults.standard.bool(forKey: "qaEditTabs") { editing = true } }
             #endif
         }
-    }
+    } }
 }
 
 /// One draggable list: the tab bar's sections, an "In More" divider, then More's. Dragging a section
@@ -319,7 +319,7 @@ private struct TabBarEditor: View {
             }
             .listRowSpacing(8)
             .environment(\.editMode, .constant(.active))
-            .scrollContentBackground(.hidden)
+            .compatibleScrollBackground(.hidden)
             .background { Backdrop() }
             .navigationTitle(L10n.text("Edit Tab Bar"))
             .navigationBarTitleDisplayMode(.inline)

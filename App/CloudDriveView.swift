@@ -35,7 +35,7 @@ struct CloudDriveView: View {
                             }.settingsButton(prominent: true)
                         }
                     }
-                }
+                 }
             }
             if store.extrasUnlocked {
             SettingsGroup(title: L10n.text("Advanced"),
@@ -51,7 +51,7 @@ struct CloudDriveView: View {
                     HStack { Spacer(); Button(L10n.text("Save Accounts")) { save() }.settingsButton(prominent: true).disabled(saving) }
                 } label: {
                     Text(L10n.text("Paste Credentials Manually"))
-                }
+                 }
             }
             }
             if let notice { Label(notice, systemImage: "checkmark.circle.fill").font(.callout).foregroundStyle(.green) }
@@ -65,21 +65,21 @@ struct CloudDriveView: View {
                 notice = L10n.text("Accounts saved. Retry the video source.")
                 error = nil
             }
-        }
+         }
         .sheet(item: $scan) { provider in
             CloudQRLoginView(drive: provider.qrDrive) {
                 accounts = (try? CloudDriveAccounts.load()) ?? accounts
                 save()
             }
-        }
+         }
         .sheet(isPresented: $texting) {
             XunleiSignInView {
                 accounts = (try? CloudDriveAccounts.load()) ?? accounts
                 notice = L10n.text("Accounts saved. Retry the video source.")
                 error = nil
             }
-        }
-    }
+         }
+     }
     private func save() {
         saving = true; notice = nil; error = nil
         Task {
@@ -261,10 +261,10 @@ struct CloudDriveView: View {
     @State private var accounts = CloudDriveAccounts()
     @State private var login: CloudProvider?
     @State private var error: String?
-    var body: some View {
+    var body: some View { PerceptionView {
         SettingsPage(title: L10n.text("Cloud Drive Accounts"), symbol: "externaldrive") {
             SettingsGroup(footer: footer) {
-                ForEach(CloudProvider.shown(store)) { provider in
+                ForEach(CloudProvider.shown(store)) { provider in PerceptionView {
                     let signedIn = provider.isSignedIn(accounts)
                     SettingsRow(symbol: provider.symbol, tint: provider.tint, title: provider.name,
                                 subtitle: L10n.text(signedIn ? "Signed In" : "Not Signed In")) {
@@ -274,13 +274,13 @@ struct CloudDriveView: View {
                             Button(L10n.text("Sign In")) { login = provider }.settingsButton(prominent: true)
                         }
                     }
-                }
+                } }
             }
             if let error { Label(error, systemImage: "exclamationmark.triangle.fill").font(.callout).foregroundStyle(Brand.rose) }
         }
         .task { reload() }
         #if os(iOS)
-        .sheet(item: $login) { provider in
+        .sheet(item: $login) { provider in PerceptionView {
             if provider == .xunlei { XunleiSignInView(signedIn: reload) }
             else if provider == .pan115 {
                 // 115 has no sign-in page here, only the code to scan with its app on another phone.
@@ -288,21 +288,21 @@ struct CloudDriveView: View {
                     CloudQRLoginView(drive: provider.qrDrive) { reload() }
                         .navigationTitle(L10n.text("Sign In to %@", provider.name))
                         .navigationBarTitleDisplayMode(.inline)
-                        .toolbar { ToolbarItem(placement: .cancellationAction) { Button(L10n.text("Cancel")) { login = nil } } }
+                        .toolbar { ToolbarItem(placement: .cancellationAction) { PerceptionView { Button(L10n.text("Cancel")) { login = nil } } } }
                 }
             } else {
                 WebSignInView(service: provider.webSignIn, signedIn: reload) {
                     CloudQRLoginView(drive: provider.qrDrive) { reload() }
                 }
             }
-        }
+        } }
         #else
-        .fullScreenCover(item: $login) { provider in
+        .fullScreenCover(item: $login) { provider in PerceptionView {
             if provider == .xunlei { XunleiSignInView(signedIn: reload) }
             else { CloudQRLoginView(drive: provider.qrDrive) { reload() } }
-        }
+        } }
         #endif
-    }
+    } }
     private var footer: String {
         #if os(iOS)
         store.extrasUnlocked ? L10n.text("Sign in on the drive's own page, or scan a code with the drive's app on another phone. Yingxia keeps the sign-in on this device and supplies it to the plugins you run.")

@@ -16,7 +16,7 @@ struct MusicNowPlayingScreen: View {
     @State private var showsChannels = false
     @Namespace private var cover
 
-    var body: some View {
+    var body: some View { PerceptionView {
         let music = store.music
         VStack(spacing: 0) {
             if let panel {
@@ -49,15 +49,15 @@ struct MusicNowPlayingScreen: View {
         .padding(.horizontal, 28).padding(.top, 30).padding(.bottom, 6)
         .foregroundStyle(.white)
         .tint(.white)
-        .background { backdrop.ignoresSafeArea() }
+        .background { PerceptionView { backdrop.ignoresSafeArea() } }
         .environment(\.colorScheme, .dark)
         .presentationDragIndicator(.visible)
-        .presentationBackground { backdrop }
+        .modifier(SheetBackground(backdrop: backdrop))
         .task(id: music.track?.artwork) {
             guard let url = music.track?.artwork, let color = await PosterPalette.average(url) else { return }
             withAnimation(.easeInOut(duration: 0.6)) { tint = color }
         }
-        .onChange(of: music.track == nil) { _, gone in if gone { dismiss() } }
+        .onValueChange(of: music.track == nil) { _, gone in if gone { dismiss() } }
         #if DEBUG
         .onAppear {
             switch UserDefaults.standard.string(forKey: "qaNowPlaying") {
@@ -67,8 +67,8 @@ struct MusicNowPlayingScreen: View {
             }
         }
         #endif
-        .sheet(isPresented: $showsChannels) { MusicChannelsView() }
-    }
+        .sheet(isPresented: $showsChannels) { PerceptionView { MusicChannelsView() } }
+    } }
 
     private var backdrop: some View {
         LinearGradient(colors: [tint.blend(with: .black, by: 0.2), tint.blend(with: .black, by: 0.62)], startPoint: .top, endPoint: .bottom)
@@ -87,18 +87,18 @@ struct MusicNowPlayingScreen: View {
                 Text(music.track?.artistLine ?? "").font(compact ? .subheadline : .title3).foregroundStyle(.secondary).lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            Menu {
+            Menu { PerceptionView {
                 if music.sourceStream != nil {
-                    Button { music.openInVideoPlayer() } label: { Label(L10n.text("Open in Video Player"), systemImage: "play.rectangle") }
+                    Button { music.openInVideoPlayer() } label: { PerceptionView { Label(L10n.text("Open in Video Player"), systemImage: "play.rectangle") } }
                 } else {
-                    Button { showsChannels = true } label: { Label(L10n.text("Channels"), systemImage: "antenna.radiowaves.left.and.right") }
+                    Button { showsChannels = true } label: { PerceptionView { Label(L10n.text("Channels"), systemImage: "antenna.radiowaves.left.and.right") } }
                 }
                 if let track = music.track { MusicDownloadMenuItems(tracks: [track]) }
-                Button(role: .destructive) { music.stop() } label: { Label(L10n.text("Stop"), systemImage: "xmark") }
-            } label: {
+                Button(role: .destructive) { music.stop() } label: { PerceptionView { Label(L10n.text("Stop"), systemImage: "xmark") } }
+            } } label: { PerceptionView {
                 Image(systemName: "ellipsis").font(.body.weight(.bold))
                     .frame(width: 32, height: 32).background(.white.opacity(0.16), in: Circle())
-            }
+            } }
             .accessibilityLabel(L10n.text("More"))
         }
         .padding(.bottom, compact ? 14 : 0)
@@ -106,7 +106,7 @@ struct MusicNowPlayingScreen: View {
 
     /// What is actually playing, one line, the same height in every state; tapping lists channels.
     private func quality(_ music: MusicPlaybackSession) -> some View {
-        Button { showsChannels = true } label: {
+        Button { showsChannels = true } label: { PerceptionView {
             Group {
                 if let failure = music.failure {
                     Text(failure).foregroundStyle(Brand.amber)
@@ -123,7 +123,7 @@ struct MusicNowPlayingScreen: View {
             .foregroundStyle(.secondary)
             .padding(.horizontal, 10).padding(.vertical, 4)
             .background(.white.opacity(music.selection == nil ? 0 : 0.1), in: Capsule())
-        }
+        } }
         .buttonStyle(.plain)
         .frame(height: 26)
         .padding(.top, 2)
@@ -141,7 +141,7 @@ struct MusicNowPlayingScreen: View {
                     ProgressView().controlSize(.large).frame(width: 72, height: 72)
                 } else {
                     control(music.isPlaying ? "pause.fill" : "play.fill", size: 44, label: music.isPlaying ? "Pause" : "Play") { music.toggle() }
-                        .contentTransition(.symbolEffect(.replace))
+                        .compatibleContentTransition(.symbolReplace)
                 }
             }
             Spacer()
@@ -176,12 +176,12 @@ struct MusicNowPlayingScreen: View {
         let on = panel == target
         return Button {
             withAnimation(.spring(response: 0.45, dampingFraction: 0.86)) { panel = on ? nil : target }
-        } label: {
+        } label: { PerceptionView {
             Image(systemName: symbol).font(.body.weight(.semibold))
                 .foregroundStyle(on ? AnyShapeStyle(tint.blend(with: .black, by: 0.4)) : AnyShapeStyle(.secondary))
                 .frame(width: 40, height: 40)
                 .background(on ? Color.white.opacity(0.9) : .clear, in: Circle())
-        }
+        } }
         .buttonStyle(.plain)
         .accessibilityLabel(L10n.text(label))
         .accessibilityAddTraits(on ? .isSelected : [])

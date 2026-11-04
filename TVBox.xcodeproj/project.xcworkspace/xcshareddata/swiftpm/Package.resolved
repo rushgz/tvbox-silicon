@@ -1,5 +1,5 @@
 {
-  "originHash" : "78fe94507e934d81c7936205c6fe0d3324b69dfd44e89aeecbf9730118d1fb1f",
+  "originHash" : "4d4f7d24d35336d2b7f9131c5dcb2364125217f3a5ba1d42e766ebbd8bc0753d",
   "pins" : [
     {
       "identity" : "colorfulx",
@@ -44,6 +44,24 @@
       "state" : {
         "revision" : "c98d56c895abc41b3f78097dae7ab6dfb015e147",
         "version" : "3.0.1"
+      }
+    },
+    {
+      "identity" : "swift-issue-reporting",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/pointfreeco/swift-issue-reporting",
+      "state" : {
+        "revision" : "b23bb4493c439d3e05152bc167014235ba3d47fc",
+        "version" : "2.1.2"
+      }
+    },
+    {
+      "identity" : "swift-syntax",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swiftlang/swift-syntax",
+      "state" : {
+        "revision" : "050f1a346fbbac0ca2cfb15a95274f7bd1cf0ccf",
+        "version" : "604.0.0"
       }
     }
   ],

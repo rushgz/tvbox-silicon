@@ -18,14 +18,14 @@ struct HomeView: View {
     /// The first frame is only the section placeholders. The source row is built on the next turn, so the page can appear before that layout.
     @State private var settled = false
 
-    var body: some View {
+    var body: some View { PerceptionView {
         #if os(tvOS)
         if let config = store.subscription, settled {
             WatchNowTVPage(config: config, sections: shownSections)
                 .historyDetailsDestination()
                 // The tab sidebar already names this page; a second heading just repeats it.
                 .toolbar(.hidden, for: .navigationBar)
-                .overlay { if shownSections.isEmpty { allHidden } }
+                .overlay {  if shownSections.isEmpty { allHidden }  }
         } else {
             classic
         }
@@ -34,7 +34,7 @@ struct HomeView: View {
         if let config = store.subscription, settled, sizeClass == .compact {
             WatchNowPhonePage(config: config, sections: shownSections)
                 .historyDetailsDestination()
-                .overlay { if shownSections.isEmpty { allHidden } }
+                .overlay { PerceptionView { if shownSections.isEmpty { allHidden } } }
         } else {
             classic
         }
@@ -42,12 +42,12 @@ struct HomeView: View {
         if let config = store.subscription, settled {
             WatchNowPhonePage(config: config, sections: shownSections)
                 .historyDetailsDestination()
-                .overlay { if shownSections.isEmpty { allHidden } }
+                .overlay { PerceptionView { if shownSections.isEmpty { allHidden } } }
         } else {
             classic
         }
         #endif
-    }
+    } }
 
     private var shownSections: Set<HomeSection> {
         Set(HomeSection.allCases.filter { section in
@@ -65,8 +65,8 @@ struct HomeView: View {
     private var classic: some View {
         // The column width, not the placeholders' own width. A row of fixed cards is wider than the
         // detail column and NavigationSplitView then gives it that width, crushing the sidebar.
-        GeometryReader { proxy in
-            ScrollViewReader { reader in
+        GeometryReader { proxy in PerceptionView {
+            ScrollViewReader { reader in PerceptionView {
                 ScrollView {
                     Group {
                         if let config = store.subscription, !settled, showsPlaceholder(config) {
@@ -81,8 +81,8 @@ struct HomeView: View {
                 #if DEBUG
                 .task { if let target = QALaunch.scrollTarget { try? await Task.sleep(for: .seconds(8)); reader.scrollTo(target, anchor: .bottom) } }
                 #endif
-            }
-        }
+            } }
+        } }
         .screenBackdrop()
         .historyDetailsDestination()
         .task {
@@ -162,11 +162,11 @@ struct HomeView: View {
 
     private var cardRow: some View {
         HStack(spacing: Layout.cardSpacing) {
-            ForEach(0..<4, id: \.self) { _ in
+            ForEach(0..<4, id: \.self) { _ in PerceptionView {
                 SkeletonBlock(cornerRadius: 16)
                     .frame(maxWidth: .infinity)
                     .frame(height: 92)
-            }
+            } }
         }
         .accessibilityHidden(true)
     }
@@ -183,10 +183,10 @@ struct HomeView: View {
             }
         }
         .padding(.horizontal, welcomeInset)
-        .containerRelativeFrame(.vertical, alignment: .center) { height, _ in height * 0.82 }
+        .welcomeHeight()
         #if os(tvOS)
         // Moving right out of the sidebar lands on the primary action, not the secondary one.
-        .defaultFocus($primaryFocused, true, priority: .userInitiated)
+        .compatibleDefaultFocus($primaryFocused, true, priority: .userInitiated)
         #endif
     }
 
@@ -247,16 +247,16 @@ struct HomeView: View {
     @ViewBuilder private var welcomeButtons: some View {
         // There is no default subscription. A cloud drive works without one (Cloud Files), and a
         // subscription address is added in Settings.
-        RouteLink { CloudDriveView() } label: {
+        RouteLink { CloudDriveView() } label: { PerceptionView {
             Label(L10n.text("Sign In to Cloud Drive"), systemImage: "externaldrive.fill.badge.person.crop").lineLimit(1)
-        }
+        } }
         .controlButton(prominent: true).tint(Brand.accent)
         #if os(tvOS)
         .focused($primaryFocused)
         #endif
-        Button { store.section = .settings } label: {
+        Button { store.section = .settings } label: { PerceptionView {
             Label(L10n.text("Add Subscription"), systemImage: "plus.circle.fill").lineLimit(1)
-        }
+        } }
         .controlButton().disabled(store.importing)
     }
 
@@ -272,11 +272,8 @@ struct HomeView: View {
 
     /// Every section switched off in Settings: say so, rather than leave a blank page.
     private var allHidden: some View {
-        ContentUnavailableView {
-            Label(L10n.text("Watch Now"), systemImage: AppSection.home.icon)
-        } description: {
-            Text(L10n.text("Choose what Watch Now shows in Settings."))
-        } actions: {
+        EmptyState(L10n.text("Watch Now"), systemImage: AppSection.home.icon,
+                   description: L10n.text("Choose what Watch Now shows in Settings.")) {
             Button(L10n.text("Settings")) { store.section = .settings }.controlButton()
         }
         .frame(maxWidth: .infinity).padding(.top, 60)
@@ -285,13 +282,13 @@ struct HomeView: View {
     private func pinnedSources(_ config: Subscription) -> some View {
         VStack(alignment: .leading, spacing: Layout.headerSpacing) {
             SectionHeader(title: L10n.text("Pinned Sources")) { store.section = .sites }
-            LazyVGrid(columns: Layout.cardColumns, spacing: Layout.cardSpacing) {
-                ForEach(store.orderedSites(config).filter { store.pinnedSources.contains($0, origin: config.origin) }) { site in
-                    RouteLink { SiteView(site: site, origin: config.origin, jarURL: config.spiderURL) } label: { SiteCard(site: site, marksPinned: false) }
-                        .tileButton().contextMenu { PinSourceButton(site: site, origin: config.origin) }
+            LazyVGrid(columns: Layout.cardColumns, spacing: Layout.cardSpacing) { PerceptionView {
+                ForEach(store.orderedSites(config).filter { store.pinnedSources.contains($0, origin: config.origin) }) { site in PerceptionView {
+                    RouteLink { SiteView(site: site, origin: config.origin, jarURL: config.spiderURL) } label: { PerceptionView { SiteCard(site: site, marksPinned: false) } }
+                        .tileButton().contextMenu { PerceptionView { PinSourceButton(site: site, origin: config.origin) } }
                         .accessibilityIdentifier("home.pinned." + site.key)
-                }
-            }
+                } }
+            } }
         }.accessibilityIdentifier("home.pinnedSources")
     }
 
@@ -300,7 +297,7 @@ struct HomeView: View {
             SectionHeader(title: L10n.text("Continue Watching")) { store.section = .history }
             ChipRow {
                 HStack(spacing: Layout.cardSpacing) {
-                    ForEach(store.playbackHistory.entries.prefix(12)) { HistoryCard(entry: $0) }
+                    ForEach(store.playbackHistory.entries.prefix(12)) { trackedValue0 in PerceptionView { HistoryCard(entry: trackedValue0) } }
                 }.padding(.vertical, 6)
             }
         }
@@ -311,9 +308,9 @@ struct HomeView: View {
             SectionHeader(title: L10n.text("Favorites")) { store.section = .favorites }
             ChipRow {
                 HStack(spacing: Layout.cardSpacing) {
-                    ForEach(Array(store.favorites.items.prefix(12))) { item in
+                    ForEach(Array(store.favorites.items.prefix(12))) { item in PerceptionView {
                         HomeFavoriteCard(item: item).frame(width: Layout.cardMin)
-                    }
+                    } }
                 }.padding(.vertical, 6)
             }
         }
@@ -358,13 +355,13 @@ private struct HomeFavoriteCard: View {
     #endif
     private static let posterWidth = thumb * 2 / 3
 
-    var body: some View {
+    var body: some View { PerceptionView {
         #if os(tvOS)
         tvBody
         #else
         cardBody
         #endif
-    }
+    } }
 
     #if os(tvOS)
     /// One focusable tile per favorite, lit up on focus like the source cards. A heart button beside the card's own focus
@@ -374,37 +371,37 @@ private struct HomeFavoriteCard: View {
         case .live(let channel):
             tvButton(name: channel.name) { store.playing = channel } label: {
                 media(ChannelLogo(channel: channel), title: channel.name, subtitle: channel.displayGroup)
-            }
+             }
         case .video(let video):
             let label = media(poster(url: video.poster, headers: video.posterHeaders), title: video.videoName, subtitle: video.sourceName)
             if let listing = video.listingVideo(), let client = store.catalogClient(for: video) {
-                RouteLink { VideoDetailView(video: listing, client: client) } label: { FavoriteTile { label } }
+                RouteLink { VideoDetailView(video: listing, client: client) } label: {  FavoriteTile { label }  }
                     .tileButton()
-                    .contextMenu { FavoriteMenuButton(item: item, name: video.videoName) }
+                    .contextMenu {  FavoriteMenuButton(item: item, name: video.videoName)  }
             } else {
-                tvButton(name: video.videoName) { store.reportMissingFavoriteSource() } label: { label }
+                tvButton(name: video.videoName) { store.reportMissingFavoriteSource() } label: {  label  }
             }
         case .episode(let episode):
             tvButton(name: episode.video.videoName) { store.play(episode) } label: {
                 media(poster(url: episode.video.poster, headers: episode.video.posterHeaders), title: episode.video.videoName, subtitle: episode.episodeName)
-            }
+             }
         case .music(let track):
             tvButton(name: track.title) { store.music.play(track) } label: {
                 media(MusicArtwork(url: track.artwork, size: Self.thumb), title: track.title, subtitle: track.artistLine)
-            }
+             }
         case .cloud(let file):
             let cloud = CloudFile(id: file.fileID, name: file.fileName, isFolder: false, size: file.size)
             tvButton(name: file.fileName) { store.play(file) } label: {
                 FileRowLabel(symbol: cloud.symbol, tint: cloud.tint, title: file.fileName,
                              subtitle: CloudFiles.drive(key: file.driveKey)?.name ?? file.driveKey)
-            }
+             }
         }
     }
 
     private func tvButton<Label: View>(name: String, action: @escaping () -> Void, @ViewBuilder label: () -> Label) -> some View {
         Button(action: action) { FavoriteTile { label() } }
             .tileButton()
-            .contextMenu { FavoriteMenuButton(item: item, name: name) }
+            .contextMenu {  FavoriteMenuButton(item: item, name: name)  }
     }
     #endif
 
@@ -440,9 +437,9 @@ private struct HomeFavoriteCard: View {
         HStack(spacing: 10) {
             Button {
                 if drag?.active != true { store.play(episode) }
-            } label: {
+            } label: { PerceptionView {
                 media(poster(url: episode.video.poster, headers: episode.video.posterHeaders), title: episode.video.videoName, subtitle: episode.episodeName)
-            }
+            } }
             .cardButton()
             FavoriteHeartButton(item: .episode(episode), name: episode.video.videoName)
                 .fixedSize()
@@ -456,9 +453,9 @@ private struct HomeFavoriteCard: View {
         HStack(spacing: 10) {
             Button {
                 if drag?.active != true { store.music.play(track) }
-            } label: {
+            } label: { PerceptionView {
                 media(MusicArtwork(url: track.artwork, size: Self.thumb), title: track.title, subtitle: track.artistLine)
-            }
+            } }
             .cardButton()
             FavoriteHeartButton(item: .music(track), name: track.title)
                 .fixedSize()
@@ -474,9 +471,9 @@ private struct HomeFavoriteCard: View {
         return HStack(spacing: 10) {
             Button {
                 if drag?.active != true { store.play(file) }
-            } label: {
+            } label: { PerceptionView {
                 FileRowLabel(symbol: cloud.symbol, tint: cloud.tint, title: file.fileName, subtitle: driveName)
-            }
+            } }
             .rowCardButton()
             FavoriteHeartButton(item: .cloud(file), name: file.fileName)
                 .fixedSize()
@@ -611,14 +608,14 @@ enum HomeSection: String, CaseIterable, Identifiable {
 
 /// Settings → Watch Now: which sections the page shows.
 struct WatchNowSettingsView: View {
-    var body: some View {
+    var body: some View { PerceptionView {
         SettingsPage(title: L10n.text("Watch Now"), symbol: AppSection.home.icon) {
             SettingsGroup(title: L10n.text("Show on Watch Now"),
                           footer: L10n.text("A section you switch off only leaves Watch Now: Playback History, Favorites, Sources and Live TV still have everything.")) {
-                ForEach(HomeSection.available) { HomeSectionToggle(section: $0) }
+                ForEach(HomeSection.available) { trackedValue0 in PerceptionView { HomeSectionToggle(section: trackedValue0) } }
             }
         }
-    }
+    } }
 }
 
 /// One section's switch, stored under the section's own key.

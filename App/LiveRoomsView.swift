@@ -61,7 +61,7 @@ struct LivePlatformView: View {
         LiveRoomGrid(rooms: rooms) { room in if room.id == rooms.last?.id { more() } }
         if loader != nil && rooms.isEmpty { ProgressView().frame(maxWidth: .infinity).padding(.vertical, 60) }
         if loader == nil && error == nil && page > 0 && rooms.isEmpty {
-            ContentUnavailableView(L10n.text("No Live Rooms"), systemImage: "dot.radiowaves.left.and.right")
+            EmptyState(L10n.text("No Live Rooms"), systemImage: "dot.radiowaves.left.and.right")
                 .frame(maxWidth: .infinity)
         }
     }
@@ -131,11 +131,11 @@ private struct LiveRoomSearch: View {
     var body: some View {
         Group {
             if let error {
-                ContentUnavailableView(L10n.text("Search Failed"), systemImage: "exclamationmark.magnifyingglass", description: Text(error))
+                EmptyState(L10n.text("Search Failed"), systemImage: "exclamationmark.magnifyingglass", description: error)
                     .frame(maxWidth: .infinity)
             } else if rooms.isEmpty {
                 if searching { ProgressView().frame(maxWidth: .infinity).padding(.vertical, 60) }
-                else { ContentUnavailableView.search(text: query).frame(maxWidth: .infinity) }
+                else { EmptyState(L10n.text("No Results"), systemImage: "magnifyingglass", description: L10n.text("No matches for “%@”.", query)).frame(maxWidth: .infinity) }
             } else {
                 LiveRoomGrid(rooms: rooms)
             }
@@ -202,7 +202,7 @@ struct LiveSearchResults: View {
                 }
             }
             if finished && channels.isEmpty && platforms.allSatisfy({ found[$0]?.isEmpty != false }) {
-                ContentUnavailableView.search(text: query).frame(maxWidth: .infinity)
+                EmptyState(L10n.text("No Results"), systemImage: "magnifyingglass", description: L10n.text("No matches for “%@”.", query)).frame(maxWidth: .infinity)
             }
         }
         .task(id: query) {
@@ -262,12 +262,12 @@ struct LiveRoomCard: View {
     @Environment(Store.self) private var store
     let room: LiveRoom
 
-    var body: some View {
+    var body: some View { PerceptionView {
         let favorite = store.isFavorite(room.channel)
-        Button { store.playing = room.channel } label: {
+        Button { store.playing = room.channel } label: { PerceptionView {
             VStack(alignment: .leading, spacing: 8) {
                 Color.clear.aspectRatio(16.0 / 9.0, contentMode: .fit)
-                    .overlay { PosterImage(url: room.cover, headers: [:]) }
+                    .overlay { PerceptionView { PosterImage(url: room.cover, headers: [:]) } }
                     .posterClip(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .coverOverlay(alignment: .topLeading) {
                         HStack(spacing: 5) {
@@ -298,14 +298,14 @@ struct LiveRoomCard: View {
             }
             // Cards in a row share its height; a one-line title leaves the space below, not between.
             .frame(maxHeight: .infinity, alignment: .top)
-        }
+        } }
         .cardButton()
-        .contextMenu {
+        .contextMenu { PerceptionView {
             Button(favorite ? L10n.text("Remove %@ from favorites", room.host) : L10n.text("Add %@ to favorites", room.host),
                    systemImage: favorite ? "heart.slash" : "heart") { store.toggleFavorite(room.channel) }
-        }
+        } }
         .accessibilityLabel("\(room.host), \(room.title)")
-    }
+    } }
 }
 
 extension LivePlatform {
@@ -367,21 +367,21 @@ struct LivePlatformCard: View {
     private static let compact = false
     #endif
 
-    var body: some View {
+    var body: some View { PerceptionView {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         Color.clear.aspectRatio(16.0 / 9.0, contentMode: .fit)
-            .background { backdrop }
+            .background { PerceptionView { backdrop } }
             // Shade under the caption so white text reads on any cover.
-            .overlay { LinearGradient(stops: [.init(color: .black.opacity(0.15), location: 0), .init(color: .clear, location: 0.3), .init(color: .black.opacity(0.85), location: 1)], startPoint: .top, endPoint: .bottom) }
-            .overlay(alignment: .topTrailing) { if room != nil { badge.padding(padding) } }
-            .overlay(alignment: .bottomLeading) { caption.padding(padding) }
+            .overlay { PerceptionView { LinearGradient(stops: [.init(color: .black.opacity(0.15), location: 0), .init(color: .clear, location: 0.3), .init(color: .black.opacity(0.85), location: 1)], startPoint: .top, endPoint: .bottom) } }
+            .overlay(alignment: .topTrailing) { PerceptionView { if room != nil { badge.padding(padding) } } }
+            .overlay(alignment: .bottomLeading) { PerceptionView { caption.padding(padding) } }
             .clipShape(shape)
-            .overlay { shape.strokeBorder(.white.opacity(focused ? 0.95 : 0.1), lineWidth: focused ? 4 : 1) }
+            .overlay { PerceptionView { shape.strokeBorder(.white.opacity(focused ? 0.95 : 0.1), lineWidth: focused ? 4 : 1) } }
             .animation(.easeOut(duration: 0.3), value: room)
             .onAppear { LivePreviews.shared.load(platform) }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(platform.name)
-    }
+    } }
 
     @ViewBuilder private var backdrop: some View {
         ZStack {

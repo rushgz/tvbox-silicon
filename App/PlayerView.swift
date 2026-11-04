@@ -38,7 +38,7 @@ struct PlaybackView: View {
         return showsChrome || session.error != nil || session.loading
     }
 
-    var body: some View {
+    var body: some View { PerceptionView {
         ZStack {
             #if os(iOS)
             Color.black.playerBleed(playerLayout != .inline)
@@ -116,7 +116,7 @@ struct PlaybackView: View {
         .onContinuousHover { _ in poke() }
         #if os(iOS)
         // The controls stay up while paused and start their countdown again on play.
-        .onChange(of: session.paused) { _, paused in if paused { hideTask?.cancel() } else if showsChrome { scheduleHide() } }
+        .onValueChange(of: session.paused) { _, paused in if paused { hideTask?.cancel() } else if showsChrome { scheduleHide() } }
         #else
         .simultaneousGesture(TapGesture().onEnded { poke() })
         #endif
@@ -136,13 +136,13 @@ struct PlaybackView: View {
             if !Task.isCancelled { toggleFullScreen() }
         }
         #endif
-        .onChange(of: channel) { _, channel in startCatalogPlayback(session, channel: channel, store: store); showOnStart() }
+        .onValueChange(of: channel) { _, channel in startCatalogPlayback(session, channel: channel, store: store); showOnStart() }
         #if os(iOS)
-        .onChange(of: session.showsPicture || session.error != nil, initial: true) { _, started in watch?.started(started) }
+        .onValueChange(of: session.showsPicture || session.error != nil, initial: true) { _, started in watch?.started(started) }
         .onAppear { watch?.opened(session) }
         #endif
-        .onChange(of: showsDanmaku) { _, value in session.catalogDanmaku.enabled = value }
-        .onChange(of: session.catalogDanmaku.enabled) { _, value in showsDanmaku = value }
+        .onValueChange(of: showsDanmaku) { _, value in session.catalogDanmaku.enabled = value }
+        .onValueChange(of: session.catalogDanmaku.enabled) { _, value in showsDanmaku = value }
         .onDisappear {
             hideTask?.cancel(); store.cancelEpisodeSelection(); session.stop()
             #if os(iOS)
@@ -153,11 +153,11 @@ struct PlaybackView: View {
         #if os(iOS)
         // Opening iPhone Duo moves the app to the inner display, which ignores orientations: drop a
         // landscape lock so the outer display isn't left in landscape when it closes again.
-        .onChange(of: horizontalSizeClass == .regular && verticalSizeClass == .regular) { _, large in
+        .onValueChange(of: horizontalSizeClass == .regular && verticalSizeClass == .regular) { _, large in
             if large { PlayerOrientation.release() }
         }
         #endif
-    }
+    } }
 
     #if DEBUG
     private var enhanceHUD: String {
@@ -192,7 +192,7 @@ struct PlaybackView: View {
         .sheet(isPresented: $showsDanmakuList) {
             DanmakuListView(player: session.player, comments: session.danmaku) { showsDanmakuList = false }
                 .danmakuListPresentation()
-        }
+         }
     }
 
     private var chromeTitle: some View {
@@ -206,7 +206,7 @@ struct PlaybackView: View {
             if let previous = store.step(back: true, from: channel, session: session) {
                 Button { previous.go() } label: {
                     Image(systemName: "backward.end.fill").font(.headline).frame(width: 22, height: 22)
-                }
+                 }
                 .chromeButton()
                 .disabled(previous.busy)
                 .accessibilityLabel(L10n.text("Previous Episode")).help(previous.name)
@@ -214,7 +214,7 @@ struct PlaybackView: View {
             if let next = store.step(back: false, from: channel, session: session) {
                 Button { next.go() } label: {
                     Image(systemName: "forward.end.fill").font(.headline).frame(width: 22, height: 22)
-                }
+                 }
                 .chromeButton()
                 .disabled(next.busy)
                 .accessibilityLabel(L10n.text("Next Episode")).help(next.name)
@@ -223,9 +223,9 @@ struct PlaybackView: View {
             if session.qualities.count > 1 {
                 Menu {
                     QualityPicker(session: session)
-                } label: {
+                 } label: {
                     Image(systemName: "sparkles.tv").font(.headline).frame(width: 22, height: 22)
-                }
+                 }
                 .chromeButton()
                 .accessibilityLabel(L10n.text("Quality"))
             }
@@ -235,13 +235,13 @@ struct PlaybackView: View {
                     Toggle(isOn: $showsDanmaku) { Label(L10n.text("Show Danmaku"), systemImage: "text.bubble") }
                     Picker(selection: $danmakuArea) {
                         ForEach(DanmakuArea.allCases, id: \.self) { Text($0.title).tag($0) }
-                    } label: { Label(L10n.text("Danmaku Area"), systemImage: "rectangle.tophalf.inset.filled") }
+                    } label: {  Label(L10n.text("Danmaku Area"), systemImage: "rectangle.tophalf.inset.filled")  }
                     .pickerStyle(.menu)
                     DanmakuStylePickers(model: session.catalogDanmaku)
-                    Button { showsDanmakuList = true } label: { Label(L10n.text("Danmaku List"), systemImage: "list.bullet.rectangle") }
-                } label: {
+                    Button { showsDanmakuList = true } label: {  Label(L10n.text("Danmaku List"), systemImage: "list.bullet.rectangle")  }
+                 } label: {
                     Image(systemName: showsDanmaku ? "text.bubble.fill" : "text.bubble").font(.headline).frame(width: 22, height: 22)
-                }
+                 }
                 .chromeButton()
                 .accessibilityLabel(L10n.text("Danmaku"))
             }
@@ -249,7 +249,7 @@ struct PlaybackView: View {
     }
 
     private var chromeClose: some View {
-        Button { dismiss() } label: { Image(systemName: "xmark").font(.headline).frame(width: 22, height: 22) }
+        Button { dismiss() } label: {  Image(systemName: "xmark").font(.headline).frame(width: 22, height: 22)  }
             .chromeButton()
             .accessibilityLabel(L10n.text("Close"))
             .accessibilityIdentifier("player.close")
@@ -348,9 +348,9 @@ struct PlaybackView: View {
                     Label(L10n.text("Can't play this right now"), systemImage: session.errorSymbol).font(.headline)
                     Text(error).font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(2)
                         .multilineTextAlignment(.center)
-                    Button { startCatalogPlayback(session, channel: channel, store: store) } label: {
+                    Button { startCatalogPlayback(session, channel: channel, store: store) } label: { PerceptionView {
                         Label(L10n.text("Try Again"), systemImage: "arrow.clockwise")
-                    }
+                    } }
                     .controlButton(prominent: true).tint(Brand.accent).controlSize(.small).padding(.top, 2)
                 }
                 .foregroundStyle(.white).padding(.horizontal, 24).padding(.top, 36)
@@ -371,11 +371,11 @@ struct PlaybackView: View {
                         .multilineTextAlignment(.center).frame(maxWidth: 330).padding(.top, 10)
                     GlassGroup(spacing: 12) {
                         HStack(spacing: 12) {
-                            Button { startCatalogPlayback(session, channel: channel, store: store) } label: {
+                            Button { startCatalogPlayback(session, channel: channel, store: store) } label: { PerceptionView {
                                 Label(L10n.text("Try Again"), systemImage: "arrow.clockwise")
-                            }
+                            } }
                             .controlButton(prominent: true).tint(Brand.accent)
-                            Button { exit() } label: { Label(L10n.text("Close"), systemImage: "xmark") }.controlButton()
+                            Button { exit() } label: { PerceptionView { Label(L10n.text("Close"), systemImage: "xmark") } }.controlButton()
                         }
                     }
                     .controlSize(.large).padding(.top, 30)
@@ -890,13 +890,13 @@ private struct DesktopPlaybackRoot: View {
     let session: PlaybackSession
     let window: PlaybackWindow
     let store: Store
-    var body: some View { DesktopPlaybackView(channel: channel, session: session, window: window).environment(store) }
+    var body: some View {  DesktopPlaybackView(channel: channel, session: session, window: window).environment(store)  }
 }
 
 private struct DesktopPlaybackView: View {
     @Environment(Store.self) private var store
     let channel: Channel
-    @Bindable var session: PlaybackSession
+    let session: PlaybackSession
     let window: PlaybackWindow
     @State private var fillsFrame = false
     @State private var floats = false
@@ -953,19 +953,19 @@ private struct DesktopPlaybackView: View {
         }
         .preferredColorScheme(.dark)
         .ignoresSafeArea()
-        .onChange(of: showsDanmaku) { _, value in session.catalogDanmaku.enabled = value }
-        .onChange(of: session.catalogDanmaku.enabled) { _, value in showsDanmaku = value }
-        .onChange(of: floats) { _, value in window.level = value ? .floating : .normal }
-        .onChange(of: showsChrome) { _, value in setTrafficLights(visible: value) }
+        .onValueChange(of: showsDanmaku) { _, value in session.catalogDanmaku.enabled = value }
+        .onValueChange(of: session.catalogDanmaku.enabled) { _, value in showsDanmaku = value }
+        .onValueChange(of: floats) { _, value in window.level = value ? .floating : .normal }
+        .onValueChange(of: showsChrome) { _, value in setTrafficLights(visible: value) }
         .onAppear { floats = window.level == .floating; idle.attach(window); tvBrowser.start() }
         // Played here again (Space, say): the other device no longer has it to itself.
-        .onChange(of: session.paused) { _, paused in if !paused { playingOn = nil } }
+        .onValueChange(of: session.paused) { _, paused in if !paused { playingOn = nil } }
         .sheet(isPresented: $showsDanmakuList) {
             DanmakuListView(player: session.player, comments: session.danmaku) { showsDanmakuList = false }
                 .danmakuListPresentation()
-        }
+         }
         .onDisappear { idle.detach(); tvBrowser.stop() }
-    }
+     }
 
     /// Title on the left (beside the traffic lights), actions on the right, over a soft scrim.
     private var topBar: some View {
@@ -1008,7 +1008,7 @@ private struct DesktopPlaybackView: View {
         .background(alignment: .top) {
             LinearGradient(colors: [.black.opacity(0.6), .clear], startPoint: .top, endPoint: .bottom)
                 .allowsHitTesting(false)
-        }
+         }
     }
 
     private func barButton(_ symbol: String, _ label: String, help: String? = nil, action: @escaping () -> Void) -> some View {
@@ -1022,14 +1022,14 @@ private struct DesktopPlaybackView: View {
 
     private var optionsMenu: some View {
         Menu {
-            Toggle(L10n.text("Loop Playback"), isOn: $session.looping)
+            Toggle(L10n.text("Loop Playback"), isOn: binding(session, \.looping))
             Toggle(L10n.text("Fill Window"), isOn: $fillsFrame)
             Toggle(L10n.text("Float on Top"), isOn: $floats)
             Toggle(L10n.text("Show Video Info"), isOn: $showsPlaybackInfo)
             if VideoEnhancement.canUpscale { Toggle(L10n.text("Sharper Picture"), isOn: $upscalesVideo) }
             if VideoEnhancement.canSmooth { Toggle(L10n.text("Smooth Motion (60 fps)"), isOn: $smoothsVideo) }
             if session.qualities.count > 1 {
-                Menu(L10n.text("Quality")) { QualityPicker(session: session) }
+                Menu(L10n.text("Quality")) {  QualityPicker(session: session)  }
             }
             if !session.danmaku.isEmpty {
                 Toggle(L10n.text("Show Danmaku"), isOn: $showsDanmaku)
@@ -1046,10 +1046,10 @@ private struct DesktopPlaybackView: View {
             Text(L10n.text("Space: Play / Pause"))
             Text(L10n.text("← / →: Seek 10s · Shift: 60s"))
             Text(L10n.text("↑ / ↓: Volume · M: Mute · F: Full Screen"))
-        } label: {
+         } label: {
             Image(systemName: "slider.horizontal.3").font(.system(size: 14, weight: .medium))
                 .frame(width: 34, height: 34).contentShape(Circle())
-        }
+         }
             // A borderless menu drew its icon at the leading edge of the circle; a plain one keeps it centred.
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
             .fixedSize()
@@ -1127,13 +1127,13 @@ private final class PassthroughHostingView<Content: View>: NSHostingView<Content
 /// Automatic, or one of the stream's qualities, best first.
 struct QualityPicker: View {
     let session: PlaybackSession
-    var body: some View {
+    var body: some View { PerceptionView {
         Picker(L10n.text("Quality"), selection: Binding(get: { session.quality ?? 0 }, set: { session.choose(quality: $0 == 0 ? nil : $0) })) {
             Text(L10n.text("Auto")).tag(0)
             ForEach(session.qualities) { Text($0.label).tag($0.id) }
         }
         .pickerStyle(.inline)
-    }
+    } }
 }
 #endif
 
@@ -1199,23 +1199,23 @@ struct PlaybackInfoPanel: View {
 
     private struct Row: Identifiable { let id: String; let text: String }
 
-    var body: some View {
+    var body: some View { PerceptionView {
         let rows = [Row(id: "film", text: info.video ?? ""), Row(id: "waveform", text: info.audio ?? ""),
                     Row(id: "speedometer", text: info.network() ?? "")].filter { !$0.text.isEmpty }
         VStack(alignment: .leading, spacing: Metrics.spacing) {
-            ForEach(rows) { row in
+            ForEach(rows) { row in PerceptionView {
                 HStack(spacing: Metrics.spacing * 2.5) {
                     Image(systemName: row.id).foregroundStyle(.white.opacity(0.55)).frame(width: Metrics.icon)
                     Text(row.text).lineLimit(1)
                 }
-            }
+            } }
         }
         .font(.system(size: Metrics.font, weight: .medium)).monospacedDigit()
         .foregroundStyle(.white.opacity(0.92))
         .padding(.horizontal, Metrics.padding * 1.3).padding(.vertical, Metrics.padding)
         // A plain tint, not a material: it sits over moving video, where a blur would redraw every frame.
         .background(.black.opacity(0.5), in: RoundedRectangle(cornerRadius: Metrics.corner, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: Metrics.corner, style: .continuous).strokeBorder(.white.opacity(0.12), lineWidth: 1) }
+        .overlay { PerceptionView { RoundedRectangle(cornerRadius: Metrics.corner, style: .continuous).strokeBorder(.white.opacity(0.12), lineWidth: 1) } }
         .opacity(rows.isEmpty ? 0 : 1)
         .animation(.smooth(duration: 0.25), value: rows.map(\.id))
         .environment(\.colorScheme, .dark)
@@ -1228,7 +1228,7 @@ struct PlaybackInfoPanel: View {
                 try? await Task.sleep(for: .seconds(1))
             }
         }
-    }
+    } }
 
     private func refresh() async {
         guard let item = session.player.currentItem else { info = PlaybackInfo(); return }

@@ -10,21 +10,21 @@ struct CatalogPlaybackActions: View {
     @State private var showsSkip = false
     @State private var showsDanmaku = false
 
-    var body: some View {
+    var body: some View { PerceptionView {
         if channel.historyContext != nil {
-            Menu {
+            Menu { PerceptionView {
                 if let catalog = store.catalog(for: channel) {
                     Toggle(L10n.text("Auto-play next episode"), isOn: Binding(
                         get: { store.autoPlayNext }, set: { store.autoPlayNext = $0 }))
-                    Menu(L10n.text("Episodes")) {
-                        ForEach(catalog.playlist.flags, id: \.self) { flag in
-                            Menu(flag) {
-                                ForEach(catalog.playlist.episodes(for: flag)) { episode in
+                    Menu(L10n.text("Episodes")) { PerceptionView {
+                        ForEach(catalog.playlist.flags, id: \.self) { flag in PerceptionView {
+                            Menu(flag) { PerceptionView {
+                                ForEach(catalog.playlist.episodes(for: flag)) { episode in PerceptionView {
                                     Button(catalog.labels[episode.id] ?? episode.name) { store.selectEpisode(episode, from: channel) }
-                                }
-                            }
-                        }
-                    }
+                                } }
+                            } }
+                        } }
+                    } }
                     .disabled(store.resolvingEpisode != nil)
                 }
                 Toggle(L10n.text("Automatically skip intro and outro"), isOn: Binding(
@@ -41,14 +41,14 @@ struct CatalogPlaybackActions: View {
                         .accessibilityIdentifier("player.danmaku")
                 }
                 if let error = store.episodeError { Text(error) }
-            } label: {
+            } } label: { PerceptionView {
                 #if os(macOS)
                 Image(systemName: "ellipsis").font(.system(size: 14, weight: .medium))
                     .frame(width: 34, height: 34).contentShape(Circle())
                 #else
                 Image(systemName: "ellipsis.circle").font(.headline).frame(width: 22, height: 22)
                 #endif
-            }
+            } }
             #if os(macOS)
             // The same 34 pt glass circle as the window's other buttons; a bordered menu drew a wider capsule, and a
             // borderless one drew its icon at the leading edge of the circle instead of the centre.
@@ -61,11 +61,11 @@ struct CatalogPlaybackActions: View {
             #endif
             .accessibilityLabel(L10n.text("Playback Options"))
             .accessibilityIdentifier("player.catalogOptions")
-            .sheet(isPresented: $showsSkip) { EpisodeSkipSettingsView(session: session) }
-            .sheet(isPresented: $showsDanmaku) {
+            .sheet(isPresented: $showsSkip) { PerceptionView { EpisodeSkipSettingsView(session: session) } }
+            .sheet(isPresented: $showsDanmaku) { PerceptionView {
                 CatalogDanmakuSettingsView(model: session.catalogDanmaku, channelName: channel.name)
-            }
+            } }
         }
-    }
+    } }
 }
 #endif

@@ -65,7 +65,7 @@ struct FeedbackView: View {
     private static var qaDrafted = false
     #endif
 
-    var body: some View {
+    var body: some View { PerceptionView {
         content
             .onAppear {
                 guard !contextLoaded else { return }
@@ -92,7 +92,7 @@ struct FeedbackView: View {
                 }
             }
             #endif
-    }
+    } }
 
     @ViewBuilder private var content: some View {
         #if os(tvOS)
@@ -126,7 +126,7 @@ struct FeedbackView: View {
                             reading = item.number
                             read(item)
                         }
-                    }
+                     }
                 }
             }
         }
@@ -344,7 +344,7 @@ private struct FeedbackPage: View {
                         .allowsHitTesting(false)
                 }
                 TextEditor(text: $message)
-                    .scrollContentBackground(.hidden)
+                    .compatibleScrollBackground(.hidden)
                     .focused($editing)
             }
             #if os(macOS)
@@ -427,7 +427,7 @@ private struct FeedbackPage: View {
                      matching: .any(of: [.images, .videos]), preferredItemEncoding: .current) { attachLabel }
             .buttonStyle(.borderless)
             .disabled(room <= 0 || sending)
-            .onChange(of: picked) { _, items in
+            .onValueChange(of: picked) { _, items in
                 guard !items.isEmpty else { return }
                 picked = []
                 add(items.map { item -> @Sendable () async throws -> URL? in { try await item.loadTransferable(type: PickedFile.self)?.url } })
@@ -484,7 +484,7 @@ private struct FeedbackPage: View {
             if !context.isEmpty {
                 TextEditor(text: $context)
                     .font(.system(compact ? .footnote : .callout, design: .monospaced))
-                    .scrollContentBackground(.hidden)
+                    .compatibleScrollBackground(.hidden)
                     .frame(height: compact ? 160 : 180)
                     .padding(compact ? 8 : 10)
                     .background { Self.card.fill(Self.fill) }

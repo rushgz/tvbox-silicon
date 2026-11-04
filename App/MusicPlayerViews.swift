@@ -11,14 +11,14 @@ extension View {
 private struct MusicPlayerInset: ViewModifier {
     @Environment(Store.self) private var store
     @Environment(\.horizontalSizeClass) private var sizeClass
-    func body(content: Content) -> some View {
+    func body(content: Content) -> some View { PerceptionView {
         #if os(tvOS) || os(macOS)
         // The remote could only reach a bottom panel through every result above it; Apple TV has
         // the Now Playing card at the top of the page and the full-screen player instead. The Mac's
         // bar floats over every page (`MusicMacBar`, in RootView).
         content
         #else
-        content.safeAreaInset(edge: .bottom, spacing: 0) {
+        content.safeAreaInset(edge: .bottom, spacing: 0) { PerceptionView {
             if store.music.showsStrip(videoPlaying: store.playing != nil) {
                 #if os(iOS)
                 if sizeClass == .compact {
@@ -36,24 +36,24 @@ private struct MusicPlayerInset: ViewModifier {
                 MusicNowPlaying().padding(.horizontal, Layout.gutter).padding(.bottom, 10)
                 #endif
             }
-        }
+        } }
         #endif
-    }
+    } }
 }
 
 /// A spinner while a channel is found, bars while sound plays.
 /// In a fixed square: the symbols differ in width, and a row would shift as they change.
 struct MusicActivityMark: View {
     @Environment(Store.self) private var store
-    var body: some View {
+    var body: some View { PerceptionView {
         Group {
             if store.music.busy { ProgressView().controlSize(.small) }
-            else if store.music.phase == .playing { Image(systemName: "waveform").foregroundStyle(Brand.accent).symbolEffect(.variableColor.iterative) }
+            else if store.music.phase == .playing { Image(systemName: "waveform").foregroundStyle(Brand.accent).compatibleSymbolEffect(.variableColorIterative) }
             else if store.music.failure != nil { Image(systemName: "exclamationmark.circle").foregroundStyle(Brand.amber) }
             else { Image(systemName: "speaker.wave.2.fill").foregroundStyle(.secondary) }
         }
         .frame(width: 24, height: 24)
-    }
+    } }
 }
 
 enum MusicTime {
@@ -77,7 +77,7 @@ struct MusicNowPlaying: View {
     private let art: CGFloat = 52
     #endif
 
-    var body: some View {
+    var body: some View { PerceptionView {
         let music = store.music
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 14) {
@@ -88,7 +88,7 @@ struct MusicNowPlaying: View {
                     // Apple TV's full-screen player; the Now Playing screen on iPad.
                     music.presentsPlayer = true
                     #endif
-                } label: {
+                } label: { PerceptionView {
                     HStack(spacing: 14) {
                         MusicArtwork(url: music.track?.artwork, size: art)
                         VStack(alignment: .leading, spacing: 3) {
@@ -98,7 +98,7 @@ struct MusicNowPlaying: View {
                         }
                     }
                     .contentShape(Rectangle())
-                }
+                } }
                 #if os(tvOS)
                 .buttonStyle(.plain)
                 #else
@@ -123,15 +123,15 @@ struct MusicNowPlaying: View {
         .frame(maxWidth: Layout.maxWidth)
         .frame(maxWidth: .infinity)
         .tvFocusSection()
-        .sheet(isPresented: $showsChannels) { MusicChannelsView() }
-        .sheet(isPresented: $showsLyrics) { MusicLyricsView() }
+        .sheet(isPresented: $showsChannels) { PerceptionView { MusicChannelsView() } }
+        .sheet(isPresented: $showsLyrics) { PerceptionView { MusicLyricsView() } }
         #if DEBUG
         // `-qaMusicLyrics 1` opens the lyrics once they load, for screenshots.
-        .onChange(of: music.lyrics) { _, lyrics in
+        .onValueChange(of: music.lyrics) { _, lyrics in
             if lyrics != nil, UserDefaults.standard.bool(forKey: "qaMusicLyrics") { showsLyrics = true }
         }
         #endif
-    }
+    } }
 
     private func queueLine(_ queue: MusicQueue) -> String? {
         queue.tracks.count > 1 ? "\(queue.index + 1)/\(queue.tracks.count)" : nil
@@ -140,13 +140,13 @@ struct MusicNowPlaying: View {
     /// The line being sung, shown as it changes.
     @ViewBuilder private func lyricLine(_ music: MusicPlaybackSession) -> some View {
         if let lyrics = music.lyrics, lyrics.synced, let index = music.currentLyric, !lyrics.lines[index].text.isEmpty {
-            Button { showsLyrics = true } label: {
+            Button { showsLyrics = true } label: { PerceptionView {
                 Text(lyrics.lines[index].text)
                     .font(.subheadline.weight(.medium)).lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .id(index)
                     .transition(.opacity)
-            }
+            } }
             .buttonStyle(.plain)
             .animation(.easeInOut(duration: 0.25), value: index)
         }
@@ -200,44 +200,44 @@ struct MusicNowPlaying: View {
         let inQueue = (music.queue?.tracks.count ?? 0) > 1
         HStack(spacing: 8) {
             if inQueue {
-                Button { music.previous() } label: { Image(systemName: "backward.fill") }
+                Button { music.previous() } label: { PerceptionView { Image(systemName: "backward.fill") } }
                     .controlButton().accessibilityLabel(L10n.text("Previous"))
             }
             #if os(tvOS)
             if !inQueue {
-                Button { music.skip(by: -15) } label: { Image(systemName: "gobackward.15") }
+                Button { music.skip(by: -15) } label: {  Image(systemName: "gobackward.15")  }
                     .controlButton().accessibilityLabel(L10n.text("Back 15 Seconds"))
             }
             #endif
             if music.failure != nil {
-                Button { music.retry() } label: { Image(systemName: "arrow.clockwise").frame(width: 22) }
+                Button { music.retry() } label: { PerceptionView { Image(systemName: "arrow.clockwise").frame(width: 22) } }
                     .controlButton(prominent: true).accessibilityLabel(L10n.text("Retry"))
             } else {
-                Button { music.toggle() } label: { Image(systemName: music.isPlaying ? "pause.fill" : "play.fill").frame(width: 22) }
+                Button { music.toggle() } label: { PerceptionView { Image(systemName: music.isPlaying ? "pause.fill" : "play.fill").frame(width: 22) } }
                     .controlButton(prominent: true).disabled(music.phase == .resolving)
                     .accessibilityLabel(L10n.text(music.isPlaying ? "Pause" : "Play"))
             }
             if inQueue {
-                Button { music.next() } label: { Image(systemName: "forward.fill") }
+                Button { music.next() } label: { PerceptionView { Image(systemName: "forward.fill") } }
                     .controlButton().disabled(music.queue?.hasNext != true).accessibilityLabel(L10n.text("Next"))
             }
             #if os(tvOS)
             if !inQueue {
-                Button { music.skip(by: 15) } label: { Image(systemName: "goforward.15") }
+                Button { music.skip(by: 15) } label: {  Image(systemName: "goforward.15")  }
                     .controlButton().accessibilityLabel(L10n.text("Forward 15 Seconds"))
             }
             #endif
             if !compact {
-                Button { showsLyrics = true } label: { Image(systemName: "quote.bubble") }
+                Button { showsLyrics = true } label: { PerceptionView { Image(systemName: "quote.bubble") } }
                     .controlButton().accessibilityLabel(L10n.text("Lyrics"))
                 if music.sourceStream != nil {
-                    Button { music.openInVideoPlayer() } label: { Image(systemName: "play.rectangle") }
+                    Button { music.openInVideoPlayer() } label: { PerceptionView { Image(systemName: "play.rectangle") } }
                         .controlButton().accessibilityLabel(L10n.text("Open in Video Player"))
                 } else {
-                    Button { showsChannels = true } label: { Image(systemName: "antenna.radiowaves.left.and.right") }
+                    Button { showsChannels = true } label: { PerceptionView { Image(systemName: "antenna.radiowaves.left.and.right") } }
                         .controlButton().accessibilityLabel(L10n.text("Channels"))
                 }
-                Button { music.stop() } label: { Image(systemName: "xmark") }
+                Button { music.stop() } label: { PerceptionView { Image(systemName: "xmark") } }
                     .controlButton().accessibilityLabel(L10n.text("Stop"))
             }
         }
@@ -246,16 +246,16 @@ struct MusicNowPlaying: View {
 
     /// On a phone: lyrics, channels and Stop behind one button beside the title.
     private func extras(_ music: MusicPlaybackSession) -> some View {
-        Menu {
-            Button { showsLyrics = true } label: { Label(L10n.text("Lyrics"), systemImage: "quote.bubble") }
+        Menu { PerceptionView {
+            Button { showsLyrics = true } label: { PerceptionView { Label(L10n.text("Lyrics"), systemImage: "quote.bubble") } }
             if music.sourceStream != nil {
-                Button { music.openInVideoPlayer() } label: { Label(L10n.text("Open in Video Player"), systemImage: "play.rectangle") }
+                Button { music.openInVideoPlayer() } label: { PerceptionView { Label(L10n.text("Open in Video Player"), systemImage: "play.rectangle") } }
             } else {
-                Button { showsChannels = true } label: { Label(L10n.text("Channels"), systemImage: "antenna.radiowaves.left.and.right") }
+                Button { showsChannels = true } label: { PerceptionView { Label(L10n.text("Channels"), systemImage: "antenna.radiowaves.left.and.right") } }
             }
             if let track = music.track { MusicDownloadMenuItems(tracks: [track]) }
-            Button(role: .destructive) { music.stop() } label: { Label(L10n.text("Stop"), systemImage: "xmark") }
-        } label: { Image(systemName: "ellipsis") }
+            Button(role: .destructive) { music.stop() } label: { PerceptionView { Label(L10n.text("Stop"), systemImage: "xmark") } }
+        } } label: { PerceptionView { Image(systemName: "ellipsis") } }
             .controlButton().accessibilityLabel(L10n.text("More"))
     }
 
@@ -290,7 +290,7 @@ struct MusicLyricsView: View {
     private let size: CGFloat = 22, translationSize: CGFloat = 15
     #endif
 
-    var body: some View {
+    var body: some View { PerceptionView {
         let music = store.music
         MusicSheet(title: music.track?.title ?? L10n.text("Lyrics"), symbol: "quote.bubble") {
             VStack(spacing: 0) {
@@ -300,8 +300,8 @@ struct MusicLyricsView: View {
                 } else if music.lyricsLoading || music.busy {
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    ContentUnavailableView(L10n.text("No Lyrics"), systemImage: "quote.bubble",
-                                           description: Text(L10n.text("Neither catalog has lyrics for this song.")))
+                    EmptyState(L10n.text("No Lyrics"), systemImage: "quote.bubble",
+                               description: L10n.text("Neither catalog has lyrics for this song."))
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -311,7 +311,7 @@ struct MusicLyricsView: View {
                 }
             }
         }
-    }
+    } }
 
     private func lines(_ lyrics: MusicLyrics, current: Int?) -> some View {
         MusicLyricLines(lyrics: lyrics, current: current, size: size, translationSize: translationSize)
@@ -328,10 +328,10 @@ struct MusicLyricLines: View {
     let translationSize: CGFloat
     @State private var scrolled: Int?
 
-    var body: some View {
+    var body: some View { PerceptionView {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: size * 0.8) {
-                ForEach(Array(lyrics.lines.enumerated()), id: \.offset) { index, line in
+            LazyVStack(alignment: .leading, spacing: size * 0.8) { PerceptionView {
+                ForEach(Array(lyrics.lines.enumerated()), id: \.offset) { index, line in PerceptionView {
                     let active = lyrics.synced && index == current
                     VStack(alignment: .leading, spacing: 4) {
                         #if os(tvOS)
@@ -359,21 +359,21 @@ struct MusicLyricLines: View {
                     .onTapGesture { if lyrics.synced { store.music.seek(toLyric: line) } }
                     #endif
                     .id(index)
-                }
+                } }
                 Text(L10n.text("Lyrics from %@", lyrics.platform.name)).font(.caption).foregroundStyle(.tertiary).padding(.top, 12)
-            }
-            .scrollTargetLayout()
+            } }
+            .compatibleScrollTargetLayout()
             .padding(.horizontal, Layout.gutter * 1.5).padding(.vertical, 40)
         }
-        .scrollPosition(id: $scrolled, anchor: .center)
+        .compatibleScrollPosition(id: $scrolled, anchor: .center)
         // Once the lines are laid out: set as the view appeared, the position was dropped, and
         // reopening the player left the lyrics at the top until the next line.
         .task { try? await Task.sleep(for: .milliseconds(60)); scrolled = current }
-        .onChange(of: current) { _, index in
+        .onValueChange(of: current) { _, index in
             guard let index else { return }
             withAnimation(.smooth(duration: 0.45)) { scrolled = index }
         }
-    }
+    } }
 }
 
 /// Every channel tried for the song, what each served, and a way to switch.
@@ -381,16 +381,16 @@ struct MusicChannelsView: View {
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
 
-    var body: some View {
+    var body: some View { PerceptionView {
         let music = store.music
         MusicSheet(title: L10n.text("Channels"), symbol: "antenna.radiowaves.left.and.right") {
             List {
                 Section {
-                    ForEach(Self.rows(music), id: \.candidate.id) { row in
+                    ForEach(Self.rows(music), id: \.candidate.id) { row in PerceptionView {
                         let current = row.candidate == music.selection?.candidate && music.failure == nil
                         Button {
                             music.choose(row.candidate); dismiss()
-                        } label: {
+                        } label: { PerceptionView {
                             HStack(spacing: 12) {
                                 Image(systemName: current ? "speaker.wave.2.fill" : row.symbol)
                                     .font(.body.weight(.semibold))
@@ -405,16 +405,16 @@ struct MusicChannelsView: View {
                             }
                             .padding(.vertical, 4)
                             .contentShape(Rectangle())
-                        }
+                        } }
                         .glassRow()
                         .disabled(current)
-                    }
+                    } }
                 } footer: {
                     Text(L10n.text("The quality shown is read from the audio itself, not taken from what a channel claims."))
                 }
             }
         }
-    }
+    } }
 
     struct Row {
         var candidate: MusicCandidate
@@ -464,8 +464,8 @@ struct MusicSettingsView: View {
          L10n.text("Xinghai (yy.zddyr.top) asks to be credited and not overused, so it is only asked when the other channels fail.")]
     }
 
-    var body: some View {
-        @Bindable var music = store.music
+    var body: some View { PerceptionView {
+        let music = store.music
         #if os(tvOS)
         // A page like Settings' own, over the whole screen: a tvOS sheet is a small card that cut the
         // channels off. Quality steps through its choices; Menu closes the page.
@@ -479,8 +479,8 @@ struct MusicSettingsView: View {
             TVSettingsSection(title: L10n.text("Channels"), footer: Self.channelNotes.joined(separator: "\n\n")) {
                 ForEach(Self.channels, id: \.0) { provider, detail in
                     TVSettingsToggle(title: provider.name, detail: detail, isOn: enabled(provider, music: music))
-                }
-                TVSettingsField(title: L10n.text("HYW key"), text: $music.preferences.hywKey)
+                 }
+                TVSettingsField(title: L10n.text("HYW key"), text: binding(music, \.preferences.hywKey))
             }
             MusicLXSourcesSection()
             MusicExtensionsSection()
@@ -489,14 +489,14 @@ struct MusicSettingsView: View {
         MusicSheet(title: L10n.text("Music Settings"), symbol: "slider.horizontal.3") {
             Form {
                 Section {
-                    Picker(L10n.text("Audio Quality"), selection: $music.preferences.quality) {
+                    Picker(L10n.text("Audio Quality"), selection: binding(music, \.preferences.quality)) {
                         ForEach(MusicQualityPreference.allCases, id: \.self) { Text($0.name).tag($0) }
                     }
                 } footer: {
                     Text(Self.qualityNote)
                 }
                 Section {
-                    ForEach(Self.channels, id: \.0) { provider, detail in
+                    ForEach(Self.channels, id: \.0) { provider, detail in PerceptionView {
                         Toggle(isOn: enabled(provider, music: music)) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(provider.name)
@@ -504,8 +504,8 @@ struct MusicSettingsView: View {
                             }
                         }
                         .settingsSwitch()
-                    }
-                    TextField(L10n.text("HYW key"), text: $music.preferences.hywKey)
+                    } }
+                    TextField(L10n.text("HYW key"), text: binding(music, \.preferences.hywKey))
                         .autocorrectionDisabled()
                         #if os(iOS)
                         .textInputAutocapitalization(.never)
@@ -514,7 +514,7 @@ struct MusicSettingsView: View {
                     Text(L10n.text("Channels"))
                 } footer: {
                     VStack(alignment: .leading, spacing: 6) {
-                        ForEach(Self.channelNotes, id: \.self) { Text($0) }
+                        ForEach(Self.channelNotes, id: \.self) { trackedValue0 in PerceptionView { Text(trackedValue0) } }
                     }
                 }
                 MusicLXSourcesSection()
@@ -525,7 +525,7 @@ struct MusicSettingsView: View {
             #endif
         }
         #endif
-    }
+    } }
 
     private func enabled(_ provider: MusicProviderID, music: MusicPlaybackSession) -> Binding<Bool> {
         Binding(get: { !music.preferences.disabled.contains(provider) }, set: { on in
@@ -572,15 +572,15 @@ private struct MusicSheet<Content: View>: View {
 /// Moves the lyrics earlier or later against the audio, in half seconds, remembered per song.
 struct MusicLyricsTiming: View {
     @Environment(Store.self) private var store
-    var body: some View {
+    var body: some View { PerceptionView {
         let music = store.music
         HStack(spacing: 12) {
-            Button { music.adjustLyrics(by: -0.5) } label: { Label(L10n.text("Lyrics Later"), systemImage: "minus") }
+            Button { music.adjustLyrics(by: -0.5) } label: { PerceptionView { Label(L10n.text("Lyrics Later"), systemImage: "minus") } }
                 .controlButton()
             Text(music.lyricsOffset == 0 ? L10n.text("Lyrics in sync") : String(format: "%+.1f s", music.lyricsOffset))
                 .font(.callout.weight(.medium)).monospacedDigit().foregroundStyle(.secondary)
                 .frame(minWidth: 110)
-            Button { music.adjustLyrics(by: 0.5) } label: { Label(L10n.text("Lyrics Earlier"), systemImage: "plus") }
+            Button { music.adjustLyrics(by: 0.5) } label: { PerceptionView { Label(L10n.text("Lyrics Earlier"), systemImage: "plus") } }
                 .controlButton()
             if music.lyricsOffset != 0 {
                 Button(L10n.text("Reset")) { music.resetLyricsOffset() }.controlButton()
@@ -588,7 +588,7 @@ struct MusicLyricsTiming: View {
         }
         .labelStyle(.titleAndIcon)
         .frame(maxWidth: .infinity)
-    }
+    } }
 }
 
 #if !os(tvOS)
@@ -598,13 +598,13 @@ struct MusicScrubber: View {
     @Environment(Store.self) private var store
     @State private var dragging: Double?
 
-    var body: some View {
+    var body: some View { PerceptionView {
         let music = store.music
         let total = music.duration ?? 0
         let position = dragging.map { $0 * total } ?? min(music.seekingTo ?? music.position, total)
         let fraction = total > 0 ? min(1, max(0, position / total)) : 0
         VStack(spacing: 6) {
-            GeometryReader { proxy in
+            GeometryReader { proxy in PerceptionView {
                 ZStack(alignment: .leading) {
                     Capsule().fill(.white.opacity(0.22))
                     Capsule().fill(.white.opacity(dragging == nil ? 0.78 : 1)).frame(width: max(0, proxy.size.width * fraction))
@@ -619,7 +619,7 @@ struct MusicScrubber: View {
                         dragging = nil
                     })
                 .animation(.easeOut(duration: 0.15), value: dragging == nil)
-            }
+            } }
             .frame(height: 22)
             HStack {
                 Text(MusicTime.text(position))
@@ -635,7 +635,7 @@ struct MusicScrubber: View {
         .accessibilityAdjustableAction { direction in
             music.skip(by: direction == .increment ? 10 : -10)
         }
-    }
+    } }
 }
 #endif
 
@@ -715,26 +715,26 @@ struct MusicLXSourcesSection: View {
             ForEach(model.sources) { source in
                 TVSettingsToggle(title: source.info.name, detail: MusicLXSourcesModel.detail(source), isOn: model.enabled(source))
                 TVSettingsAction(title: L10n.text("Remove “%@”", source.info.name), destructive: true) { model.remove(source) }
-            }
+             }
             // Apple TV has no files to pick: sources come from an address.
             TVSettingsField(title: L10n.text("Add from Address"), text: $address)
                 .disabled(model.busy)
-                .onChange(of: address) { _, text in
+                .onValueChange(of: address) { _, text in
                     guard !text.isEmpty else { return }
                     model.add(address: text)
                     address = ""
                 }
         }
-    }
+     }
 }
 #else
 struct MusicLXSourcesSection: View {
     @State private var model = MusicLXSourcesModel()
     @State private var address = ""
     @State private var importing = false
-    var body: some View {
+    var body: some View { PerceptionView {
         Section {
-            ForEach(model.sources) { source in
+            ForEach(model.sources) { source in PerceptionView {
                 HStack {
                     Toggle(isOn: model.enabled(source)) {
                         VStack(alignment: .leading, spacing: 2) {
@@ -743,11 +743,11 @@ struct MusicLXSourcesSection: View {
                         }
                     }
                     .settingsSwitch()
-                    Button(role: .destructive) { model.remove(source) } label: { Image(systemName: "trash") }
+                    Button(role: .destructive) { model.remove(source) } label: { PerceptionView { Image(systemName: "trash") } }
                         .buttonStyle(.borderless)
                         .accessibilityLabel(L10n.text("Remove “%@”", source.info.name))
                 }
-            }
+            } }
             HStack {
                 TextField(L10n.text("Source address"), text: $address)
                     .autocorrectionDisabled()
@@ -770,7 +770,7 @@ struct MusicLXSourcesSection: View {
         .fileImporter(isPresented: $importing, allowedContentTypes: [.javaScript, .plainText, .data]) { result in
             if case .success(let file) = result { model.add(file: file) }
         }
-    }
+    } }
 
     private func add() {
         model.add(address: address)
@@ -862,18 +862,18 @@ struct MusicExtensionsSection: View {
             ForEach(model.items) { item in
                 TVSettingsToggle(title: item.name, detail: MusicExtensionsModel.detail(item), isOn: model.enabled(item))
                 TVSettingsAction(title: L10n.text("Remove “%@”", item.name), destructive: true) { model.remove(item) }
-            }
+             }
             // Apple TV has no files to pick: extensions come from an address.
             TVSettingsField(title: L10n.text("Add from Address"), text: $address)
                 .disabled(model.busy)
-                .onChange(of: address) { _, text in
+                .onValueChange(of: address) { _, text in
                     guard !text.isEmpty else { return }
                     model.add(address: text)
                     address = ""
                 }
         }
         .onAppear { model.changed = { [store] in Task { await store.musicBrowse.reload(.ext) } } }
-    }
+     }
 }
 #else
 struct MusicExtensionsSection: View {
@@ -881,9 +881,9 @@ struct MusicExtensionsSection: View {
     @State private var model = MusicExtensionsModel()
     @State private var address = ""
     @State private var importing = false
-    var body: some View {
+    var body: some View { PerceptionView {
         Section {
-            ForEach(model.items) { item in
+            ForEach(model.items) { item in PerceptionView {
                 HStack {
                     Toggle(isOn: model.enabled(item)) {
                         VStack(alignment: .leading, spacing: 2) {
@@ -893,11 +893,11 @@ struct MusicExtensionsSection: View {
                         }
                     }
                     .settingsSwitch()
-                    Button(role: .destructive) { model.remove(item) } label: { Image(systemName: "trash") }
+                    Button(role: .destructive) { model.remove(item) } label: { PerceptionView { Image(systemName: "trash") } }
                         .buttonStyle(.borderless)
                         .accessibilityLabel(L10n.text("Remove “%@”", item.name))
                 }
-            }
+            } }
             HStack {
                 TextField(L10n.text("Extension address"), text: $address)
                     .autocorrectionDisabled()
@@ -921,7 +921,7 @@ struct MusicExtensionsSection: View {
             if case .success(let file) = result { model.add(file: file) }
         }
         .onAppear { model.changed = { [store] in Task { await store.musicBrowse.reload(.ext) } } }
-    }
+    } }
 
     private func add() {
         model.add(address: address)

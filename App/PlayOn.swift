@@ -158,7 +158,7 @@ struct PlayOnIncoming: View {
             .allowsHitTesting(false)
             .transition(.move(edge: .top).combined(with: .opacity))
         }
-    }
+     }
     #if os(tvOS)
     private static let spacing: CGFloat = 18
     #else
@@ -184,19 +184,19 @@ struct PlayOnButton: View {
     @State private var airPlay = AirPlayPicker()
     #endif
 
-    var body: some View {
-        Menu {
+    var body: some View { PerceptionView {
+        Menu { PerceptionView {
             Section(L10n.text("Play On")) {
-                ForEach(browser.receivers) { receiver in
-                    Button { send(to: receiver) } label: { Label(receiver.name, systemImage: Self.symbol(receiver.kind)) }
-                }
+                ForEach(browser.receivers) { receiver in PerceptionView {
+                    Button { send(to: receiver) } label: { PerceptionView { Label(receiver.name, systemImage: Self.symbol(receiver.kind)) } }
+                } }
             }
             #if os(iOS)
             Section {
                 Button(action: airPlay.present) { Label(L10n.text("AirPlay"), systemImage: "airplay.video") }
             }
             #endif
-        } label: {
+        } } label: { PerceptionView {
             #if os(macOS)
             // As the Mac player's other buttons (DesktopPlaybackView's options menu).
             Group {
@@ -211,10 +211,10 @@ struct PlayOnButton: View {
             }
             .frame(width: 22, height: 22)
             #endif
-        }
+        } }
         #if os(iOS)
         // The picker AirPlay opens from, and where an iPad's popover points; all but invisible, not hidden.
-        .background { AirPlayPickerView(picker: airPlay).opacity(0.02).allowsHitTesting(false) }
+        .background { PerceptionView { AirPlayPickerView(picker: airPlay).opacity(0.02).allowsHitTesting(false) } }
         #endif
         #if os(macOS)
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
@@ -233,7 +233,7 @@ struct PlayOnButton: View {
         #if DEBUG
         // `-qaPlayOn <name or *>`: sends to that device once it shows up, once per launch, after
         // `-qaPlayOnDelay <seconds>` of playback.
-        .onChange(of: browser.receivers, initial: true) { _, receivers in
+        .onValueChange(of: browser.receivers, initial: true) { _, receivers in
             guard let wanted = UserDefaults.standard.string(forKey: "qaPlayOn"), !Self.qaSent,
                   let receiver = receivers.first(where: { $0.name == wanted || wanted == "*" }) else { return }
             Self.qaSent = true
@@ -251,7 +251,7 @@ struct PlayOnButton: View {
         }
         #endif
         #endif
-    }
+    } }
     #if DEBUG
     @MainActor private static var qaSent = false
     #endif

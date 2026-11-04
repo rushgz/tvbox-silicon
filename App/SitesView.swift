@@ -19,48 +19,48 @@ struct SitesView: View {
     /// The fold as it was when a search began; restored when the search is cleared.
     @State private var foldBeforeSearch: Set<String>?
     @State private var arranging = false
-    var body: some View {
+    var body: some View { PerceptionView {
         Group {
             if let config = store.subscription {
                 let groups = store.sourceGroups(includeHidden: false).filtered(by: query).limited(to: pick == nil ? nil : Set(pickable.map(\.key)))
                 let sites = store.orderedSites(config)
-                ScrollViewReader { proxy in
+                ScrollViewReader { proxy in PerceptionView {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: Layout.cardSpacing) {
+                    LazyVStack(alignment: .leading, spacing: Layout.cardSpacing) { PerceptionView {
                         if pick == nil, query.isEmpty && sites.count > 1 {
                             SourceOrderCard(sites: sites) { arranging = true }.tvFocusSection()
                         }
-                        ForEach(groups) { group in
+                        ForEach(groups) { group in PerceptionView {
                             groupHeader(group)
                             if !collapsed.contains(group.id) {
-                                LazyVGrid(columns: Layout.cardColumns, spacing: Layout.cardSpacing) {
-                                    ForEach(group.sites) { site in
+                                LazyVGrid(columns: Layout.cardColumns, spacing: Layout.cardSpacing) { PerceptionView {
+                                    ForEach(group.sites) { site in PerceptionView {
                                         if let pick {
-                                            Button { pick(site); dismiss() } label: { SiteCard(site: site, chosen: site.key == picked) }.tileButton()
+                                            Button { pick(site); dismiss() } label: { PerceptionView { SiteCard(site: site, chosen: site.key == picked) } }.tileButton()
                                                 .accessibilityAddTraits(site.key == picked ? .isSelected : [])
                                                 .focused($focusedSite, equals: site.key)
                                                 .id(site.key)
                                         } else {
-                                        RouteLink { SiteView(site: site, origin: config.origin, jarURL: config.spiderURL) } label: { SiteCard(site: site, dimmed: group.kind == .hidden) }.tileButton()
-                                            .contextMenu {
+                                        RouteLink { SiteView(site: site, origin: config.origin, jarURL: config.spiderURL) } label: { PerceptionView { SiteCard(site: site, dimmed: group.kind == .hidden) } }.tileButton()
+                                            .contextMenu { PerceptionView {
                                                 PinSourceButton(site: site, origin: config.origin)
                                                 HideSourceButton(site: site, origin: config.origin)
                                                 if store.sourceOrder.enabled { MoveSourceButtons(site: site, sites: sites) }
-                                            }
+                                            } }
                                         }
-                                    }
-                                }
+                                    } }
+                                } }
                                 // Unfolds from under its header; folding only fades, as the groups below slide up.
                                 .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: -16)), removal: .opacity))
                             }
-                        }
-                    }.pageContainer()
+                        } }
+                    } }.pageContainer()
                 }
                 // Picking opens on the current choice rather than the top of a long page.
-                .defaultFocus($focusedSite, picked)
+                .compatibleDefaultFocus($focusedSite, picked)
                 .onAppear { if pick != nil, let picked { proxy.scrollTo(picked, anchor: .center) } }
-                }
-                .sheet(isPresented: $arranging) { SourceOrderEditor(sites: sites, automatic: store.automaticSites(config)) }
+                } }
+                .sheet(isPresented: $arranging) { PerceptionView { SourceOrderEditor(sites: sites, automatic: store.automaticSites(config)) } }
                 #if DEBUG
                 // `-qaArrangeSources 1` opens the editor for screenshots.
                 .task {
@@ -71,7 +71,7 @@ struct SitesView: View {
                     arranging = true
                 }
                 #endif
-            } else { ContentUnavailableView(L10n.text("No Sources Yet"), systemImage: "square.grid.2x2", description: Text(L10n.text("Add a TVBox subscription in Settings."))) }
+            } else { EmptyState(L10n.text("No Sources Yet"), systemImage: "square.grid.2x2", description: L10n.text("Add a TVBox subscription in Settings.")) }
         }
         .screenBackdrop()
         .catalogSearchable(text: $query, prompt: L10n.text("Find a source"))
@@ -82,10 +82,10 @@ struct SitesView: View {
                 prepared = true
             }
         }
-        .onChange(of: store.section) { _, new in
+        .onValueChange(of: store.section) { _, new in
             if new != .sites { prepared = false }
         }
-        .onChange(of: query) { old, new in
+        .onValueChange(of: query) { old, new in
             if old.isEmpty && !new.isEmpty {
                 foldBeforeSearch = collapsed
                 collapsed = []
@@ -94,7 +94,7 @@ struct SitesView: View {
                 foldBeforeSearch = nil
             }
         }
-    }
+    } }
 
     @ViewBuilder
     private func groupHeader(_ group: SourceGroup) -> some View {
@@ -103,7 +103,7 @@ struct SitesView: View {
             withAnimation(.snappy(duration: 0.3)) {
                 if open { collapsed.insert(group.id) } else { collapsed.remove(group.id) }
             }
-        } label: {
+        } label: { PerceptionView {
             HStack(spacing: 8) {
                 Text(L10n.text(group.title)).font(.headline).lineLimit(1)
                 Text("\(group.sites.count)").font(.subheadline).monospacedDigit().foregroundStyle(.secondary)
@@ -113,7 +113,7 @@ struct SitesView: View {
                     .rotationEffect(.degrees(open ? 90 : 0))
             }
             .contentShape(Rectangle())
-        }
+        } }
         .buttonStyle(.plain)
         .accessibilityAddTraits(.isHeader)
         .accessibilityIdentifier("sources.group." + group.id)
@@ -208,11 +208,11 @@ struct SourceHealthDot: View {
     #else
     private let size: CGFloat = 8
     #endif
-    var body: some View {
+    var body: some View { PerceptionView {
         if let tint = status.tint {
             Image(systemName: "circle.fill").font(.system(size: size)).foregroundStyle(tint).accessibilityLabel(status.summary)
         }
-    }
+    } }
 }
 
 /// A source as an app-icon tile plus its name: the name's emoji becomes the icon, its taglines
@@ -236,7 +236,7 @@ struct SiteCard: View {
     // Keyboard focus on the Mac must not turn the text black on a dark panel.
     private let focused = false
     #endif
-    var body: some View {
+    var body: some View { PerceptionView {
         let label = SourceLabel(site.name)
         let pinned = marksPinned && (store.subscription.map { store.pinnedSources.contains(site, origin: $0.origin) } ?? false)
         let runs = site.isBuiltIn || site.canBrowse(jarURL: store.subscription?.spiderURL)
@@ -245,15 +245,15 @@ struct SiteCard: View {
             SourceIcon(site: site, label: label, size: icon)
                 .opacity(runs ? 1 : 0.45)
                 // A badge on the icon, not another line, so pinned cards keep the grid's height.
-                .overlay(alignment: .bottomTrailing) {
+                .overlay(alignment: .bottomTrailing) { PerceptionView {
                     if pinned {
                         Image(systemName: "pin.fill").font(.system(size: icon * 0.18, weight: .bold)).foregroundStyle(Brand.onAccent)
                             .frame(width: icon * 0.36, height: icon * 0.36).background(Brand.accent, in: Circle())
-                            .overlay { Circle().strokeBorder(.black.opacity(0.35), lineWidth: 1) }
+                            .overlay { PerceptionView { Circle().strokeBorder(.black.opacity(0.35), lineWidth: 1) } }
                             .offset(x: icon * 0.1, y: icon * 0.1)
                             .accessibilityLabel(L10n.text("Pinned"))
                     }
-                }
+                } }
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(label.parts[0]).font(.headline).lineLimit(1)
@@ -276,10 +276,10 @@ struct SiteCard: View {
             #endif
         }
         .padding(padding).frame(maxWidth: .infinity, alignment: .leading)
-        .background { TileSurface(focused: focused, radius: radius) }
+        .background { PerceptionView { TileSurface(focused: focused, radius: radius) } }
         .accessibilityElement(children: .combine)
         .opacity(dimmed ? 0.45 : 1)
-    }
+    } }
 
     /// Which engine runs a source is an implementation detail; only built-in sources say so.
     private var engine: String? { site.isBuiltIn ? L10n.text("Built-in") : nil }
@@ -351,24 +351,24 @@ struct PinSourceButton: View {
     @Environment(Store.self) private var store
     let site: Site
     let origin: URL
-    var body: some View {
+    var body: some View { PerceptionView {
         let pinned = store.pinnedSources.contains(site, origin: origin)
-        Button { store.pinnedSources.toggle(site, origin: origin) } label: {
+        Button { store.pinnedSources.toggle(site, origin: origin) } label: { PerceptionView {
             Label(L10n.text(pinned ? "Unpin source" : "Pin source"), systemImage: pinned ? "pin.slash" : "pin")
-        }.accessibilityIdentifier("source.pin." + site.key)
-    }
+        } }.accessibilityIdentifier("source.pin." + site.key)
+    } }
 }
 
 struct HideSourceButton: View {
     @Environment(Store.self) private var store
     let site: Site
     let origin: URL
-    var body: some View {
+    var body: some View { PerceptionView {
         let hidden = store.hiddenSources.contains(site, origin: origin)
-        Button { store.hiddenSources.toggle(site, origin: origin) } label: {
+        Button { store.hiddenSources.toggle(site, origin: origin) } label: { PerceptionView {
             Label(L10n.text(hidden ? "Unhide Source" : "Hide Source"), systemImage: hidden ? "eye" : "eye.slash")
-        }.accessibilityIdentifier("source.hide." + site.key)
-    }
+        } }.accessibilityIdentifier("source.hide." + site.key)
+    } }
 }
 
 /// Context-menu moves within the viewer's own source order.
@@ -376,16 +376,16 @@ struct MoveSourceButtons: View {
     @Environment(Store.self) private var store
     let site: Site
     let sites: [Site]
-    var body: some View {
+    var body: some View { PerceptionView {
         if let index = sites.firstIndex(where: { $0.id == site.id }) {
             if index > 0 {
-                Button { store.moveSource(site, to: 0) } label: { Label(L10n.text("Move to Top"), systemImage: "arrow.up.to.line") }
+                Button { store.moveSource(site, to: 0) } label: { PerceptionView { Label(L10n.text("Move to Top"), systemImage: "arrow.up.to.line") } }
             }
             if index < sites.count - 1 {
-                Button { store.moveSource(site, to: sites.count) } label: { Label(L10n.text("Move to Bottom"), systemImage: "arrow.down.to.line") }
+                Button { store.moveSource(site, to: sites.count) } label: { PerceptionView { Label(L10n.text("Move to Bottom"), systemImage: "arrow.down.to.line") } }
             }
         }
-    }
+    } }
 }
 
 /// The Sources page's header: the switch for the viewer's own order (`SourceOrder`), the top of
@@ -401,7 +401,7 @@ struct SourceOrderCard: View {
         L10n.text(store.sourceOrder.enabled ? "Sources at the top are searched first, and their results are listed first."
                                             : "Yingxia searches quick, reliable sources first.")
     }
-    var body: some View {
+    var body: some View { PerceptionView {
         #if os(tvOS)
         VStack(alignment: .leading, spacing: 8) {
             TVSettingsToggle(title: L10n.text("Custom Search Order"), detail: detail, isOn: enabled)
@@ -451,7 +451,7 @@ struct SourceOrderCard: View {
         .padding(16)
         .contentPanel(cornerRadius: 22)
         #endif
-    }
+    } }
 }
 
 /// The first sources of an order, as numbered icons.
@@ -507,7 +507,7 @@ private struct SourceOrderRow: View {
     private let icon: CGFloat = 32, rankWidth: CGFloat = 26
     private let title = Font.body.weight(.medium), caption = Font.caption
     #endif
-    var body: some View {
+    var body: some View { PerceptionView {
         let label = SourceLabel(site.name)
         let detail = (label.parts.dropFirst() + [site.isBuiltIn ? L10n.text("Built-in") : nil].compactMap { $0 }).joined(separator: " · ")
         HStack(spacing: 12) {
@@ -530,7 +530,7 @@ private struct SourceOrderRow: View {
         }
         .padding(.vertical, 3)
         .accessibilityElement(children: .combine)
-    }
+    } }
 }
 
 /// The viewer's source order as a list to drag into place. tvOS has no dragging: there, choose a
@@ -556,7 +556,7 @@ struct SourceOrderEditor: View {
         if let config = store.subscription { store.sourceOrder.save(sites, origin: config.origin) }
     }
 
-    var body: some View {
+    var body: some View { PerceptionView {
         #if os(tvOS)
         NavigationStack {
             ScrollView {
@@ -564,17 +564,17 @@ struct SourceOrderEditor: View {
                     Text(L10n.text("Choose a source to move it. Sources at the top are searched first, and their results are listed first."))
                         .font(.system(size: 24)).foregroundStyle(.secondary).padding(.bottom, 12)
                     ForEach(Array(sites.enumerated()), id: \.element.id) { index, site in
-                        Button { moving = site } label: { SourceOrderRow(site: site, rank: index + 1).frame(maxWidth: .infinity) }
+                        Button { moving = site } label: {  SourceOrderRow(site: site, rank: index + 1).frame(maxWidth: .infinity)  }
                             .glassRow()
                             .accessibilityIdentifier("sources.order.row." + site.key)
-                    }
+                     }
                     TVSettingsAction(title: L10n.text("Reset"), destructive: true) {
                         withAnimation(.smooth) { sites = automatic }
                         save()
                     }
                     .disabled(isAutomatic)
                     .padding(.top, 16)
-                }
+                 }
                 .glassRowInsets()
             }
             .screenTitle(L10n.text("Arrange Sources"))
@@ -599,13 +599,13 @@ struct SourceOrderEditor: View {
         NavigationStack {
             List {
                 Section {
-                    ForEach(Array(sites.enumerated()), id: \.element.id) { index, site in
+                    ForEach(Array(sites.enumerated()), id: \.element.id) { index, site in PerceptionView {
                         SourceOrderRow(site: site, rank: index + 1)
                             #if os(iOS)
                             .listRowBackground(Surface())
                             #endif
                             .accessibilityIdentifier("sources.order.row." + site.key)
-                    }
+                    } }
                     .onMove { sites.move(fromOffsets: $0, toOffset: $1) }
                 } footer: {
                     Text(L10n.text("Drag sources to reorder them. Sources at the top are searched first, and their results are listed first."))
@@ -613,27 +613,27 @@ struct SourceOrderEditor: View {
             }
             #if os(iOS)
             .environment(\.editMode, .constant(.active))
-            .scrollContentBackground(.hidden)
-            .background { Backdrop() }
+            .compatibleScrollBackground(.hidden)
+            .background { PerceptionView { Backdrop() } }
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .navigationTitle(L10n.text("Arrange Sources"))
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                ToolbarItem(placement: .cancellationAction) { PerceptionView {
                     Button(L10n.text("Cancel")) { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
+                } }
+                ToolbarItem(placement: .confirmationAction) { PerceptionView {
                     Button(L10n.text("Done")) { save(); dismiss() }.fontWeight(.semibold)
                         .accessibilityIdentifier("sources.order.done")
-                }
+                } }
                 #if os(iOS)
-                ToolbarItem(placement: .bottomBar) {
+                ToolbarItem(placement: .bottomBar) { PerceptionView {
                     Button(L10n.text("Reset")) { withAnimation(.smooth) { sites = automatic } }.disabled(isAutomatic)
-                }
+                } }
                 #else
-                ToolbarItem(placement: .destructiveAction) {
+                ToolbarItem(placement: .destructiveAction) { PerceptionView {
                     Button(L10n.text("Reset")) { withAnimation(.smooth) { sites = automatic } }.disabled(isAutomatic)
-                }
+                } }
                 #endif
             }
         }
@@ -641,7 +641,7 @@ struct SourceOrderEditor: View {
         .frame(width: 480, height: 600)
         #endif
         #endif
-    }
+    } }
 
     #if os(tvOS)
     private func move(_ site: Site, to offset: Int) {
@@ -681,20 +681,18 @@ struct SiteView: View {
         }
     }
 
-    var body: some View {
+    var body: some View { PerceptionView {
         Group {
             if !canLoad {
-                ContentUnavailableView {
-                    Label(site.compatibility, systemImage: "puzzlepiece.extension")
-                } description: {
-                    if site.type != 3 {
-                        Text(L10n.text("This source format is not supported. Choose another source."))
-                    } else {
-                        Text(site.runtime == .jar ? L10n.text("This source uses a plugin that requires Android DEX and native libraries. This platform does not yet have the required compatibility layer.\n\n%@", site.api)
-                             : site.runtime == .python ? L10n.text("This source requires a Python runtime, which is not available on this platform.")
-                             : L10n.text("This source requires a JavaScript engine, which is not supported yet."))
+                let reason: String = {
+                    guard site.type == 3 else { return L10n.text("This source format is not supported. Choose another source.") }
+                    switch site.runtime {
+                    case .jar: return L10n.text("This source uses a plugin that requires Android DEX and native libraries. This platform does not yet have the required compatibility layer.\n\n%@", site.api)
+                    case .python: return L10n.text("This source requires a Python runtime, which is not available on this platform.")
+                    default: return L10n.text("This source requires a JavaScript engine, which is not supported yet.")
                     }
-                }
+                }()
+                EmptyState(site.compatibility, systemImage: "puzzlepiece.extension", description: reason)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 #if os(tvOS)
                 .focusable()
@@ -702,7 +700,7 @@ struct SiteView: View {
                 #endif
             } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 20) {
+                    LazyVStack(alignment: .leading, spacing: 20) { PerceptionView {
                         #if os(tvOS)
                         // The remote's keyboard has no return key, so typing only edits the query; as in
                         // the Search tab, a focusable button below the keyboard runs the search.
@@ -733,20 +731,20 @@ struct SiteView: View {
                             .padding(.vertical, browser.videos.isEmpty ? 24 : 8)
                         }
                         if browser.videos.isEmpty && browser.loaded && !browser.busy && browser.error == nil { EmptyResults(symbol: "film", title: L10n.text("No Videos"), message: L10n.text("Try selecting a category or searching.")) }
-                        LazyVGrid(columns: Layout.posterColumns, spacing: Layout.gridRowSpacing) {
-                            ForEach(browser.videos) { video in
+                        LazyVGrid(columns: Layout.posterColumns, spacing: Layout.gridRowSpacing) { PerceptionView {
+                            ForEach(browser.videos) { video in PerceptionView {
                                 // An index source (a ranking or list site) names titles; other sources play them.
                                 if isIndex {
-                                    Button { store.searchVideos(video.name) } label: { PosterCard(video: video) }.cardButton()
+                                    Button { store.searchVideos(video.name) } label: { PerceptionView { PosterCard(video: video) } }.cardButton()
                                 } else {
-                                    RouteLink { CatalogDestination(video: video, client: client) } label: { PosterCard(video: video) }.cardButton()
+                                    RouteLink { CatalogDestination(video: video, client: client) } label: { PerceptionView { PosterCard(video: video) } }.cardButton()
                                 }
-                            }
-                        }
+                            } }
+                        } }
                         .opacity(browser.busy && !browser.videos.isEmpty ? 0.55 : 1).animation(.smooth, value: browser.busy)
-                    }.pageContainer()
+                    } }.pageContainer()
                 }
-                .safeAreaInset(edge: .bottom) { if browser.pageCount > 1 { pager } }
+                .safeAreaInset(edge: .bottom) { PerceptionView { if browser.pageCount > 1 { pager } } }
                 .catalogSearchable(text: Binding(get: { query }, set: { value in
                     query = value
                     if value.isEmpty && !browser.query.isEmpty { startRequest { await home() } }
@@ -785,18 +783,18 @@ struct SiteView: View {
                 else { query = initialQuery; await search(); await browser.loadCategories(client: client) }
             }
         }
-    }
+    } }
     private var categoryBar: some View {
         ChipRow {
             GlassGroup(spacing: 8) {
                 HStack(spacing: 8) {
                     Chip(title: L10n.text("Recommendations"), selected: browser.query.isEmpty && browser.category.isEmpty) { query = ""; startRequest { await home() } }
-                    ForEach(browser.categories) { item in
+                    ForEach(browser.categories) { item in PerceptionView {
                         Chip(title: item.name, selected: browser.query.isEmpty && browser.category == item.id) {
                             query = ""
                             startRequest { await browser.load(.list(category: item.id, query: "", page: 1), client: client) }
                         }
-                    }
+                    } }
                 }
             }.padding(.vertical, 4)
         }
@@ -804,11 +802,11 @@ struct SiteView: View {
     private var pager: some View {
         GlassGroup(spacing: 10) {
             HStack(spacing: 10) {
-                Button { startRequest { await load(page: browser.page - 1) } } label: { Image(systemName: "chevron.left").frame(width: 22) }
+                Button { startRequest { await load(page: browser.page - 1) } } label: { PerceptionView { Image(systemName: "chevron.left").frame(width: 22) } }
                     .controlButton().disabled(browser.page <= 1 || browser.busy).accessibilityLabel(L10n.text("Previous"))
                 Text(L10n.text("Page %lld of %lld", browser.page, browser.pageCount)).font(.subheadline.weight(.medium).monospacedDigit())
                     .padding(.horizontal, 16).padding(.vertical, 10)
-                Button { startRequest { await load(page: browser.page + 1) } } label: { Image(systemName: "chevron.right").frame(width: 22) }
+                Button { startRequest { await load(page: browser.page + 1) } } label: { PerceptionView { Image(systemName: "chevron.right").frame(width: 22) } }
                     .controlButton().disabled(browser.page >= browser.pageCount || browser.busy).accessibilityLabel(L10n.text("Next"))
             }
         }.controlSize(.large)
@@ -922,7 +920,7 @@ struct VideoDetailView: View {
         }
     }
 
-    var body: some View {
+    var body: some View { PerceptionView {
         Group {
             #if os(iOS)
             if watchLayout { watchBody } else { pageBody }
@@ -930,11 +928,11 @@ struct VideoDetailView: View {
             pageBody
             #endif
         }
-        .safeAreaInset(edge: .bottom) { if !isWatchPage { loadingCard } }
+        .safeAreaInset(edge: .bottom) { PerceptionView { if !isWatchPage { loadingCard } } }
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { containerWidth = $0 }
         #if os(macOS)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background { DetailAurora(poster: video.poster, headers: video.posterHeaders) }
+        .background {  DetailAurora(poster: video.poster, headers: video.posterHeaders)  }
         #else
         .screenBackdrop()
         #endif
@@ -960,17 +958,17 @@ struct VideoDetailView: View {
         }
         .onDisappear { requestTask?.cancel() }
         .task(id: detail?.id) { await startTMDB() }
-        .onChange(of: choosingQuality) { _, open in if !open && !busy { loadingEpisode = nil } }
+        .onValueChange(of: choosingQuality) { _, open in if !open && !busy { loadingEpisode = nil } }
         #if os(iOS)
-        .sheet(isPresented: $showsConfigCenter) { ConfigCenterView { await configCenterAddress() } }
+        .sheet(isPresented: $showsConfigCenter) { PerceptionView { ConfigCenterView { await configCenterAddress() } } }
         #endif
         // Sign in where playback failed, then resume the episode that needed the account.
         #if !os(tvOS)
-        .sheet(item: $bundleSignIn) { pending in
+        .sheet(item: $bundleSignIn) { pending in PerceptionView {
             CatPawSignInView(client: client, provider: pending.provider) {
                 if let episode = playbackIssue?.episode { startRequest { await play(episode) } }
             }
-        }
+        } }
         #endif
         #if os(macOS)
         .sheet(item: $signingIn) { drive in
@@ -985,22 +983,22 @@ struct VideoDetailView: View {
                     if let episode = playbackIssue?.episode { startRequest { await play(episode) } }
                 }
             }
-        }
+         }
         #elseif os(iOS)
         // The drive's own sign-in page; the code is for signing in with another phone.
-        .sheet(item: $signingIn) { drive in
+        .sheet(item: $signingIn) { drive in PerceptionView {
             if drive == .xunlei { XunleiSignInView(signedIn: retryAfterSignIn) }
             else {
                 WebSignInView(service: drive.webSignIn, signedIn: retryAfterSignIn) {
                     CloudQRLoginView(drive: drive.qrDrive) { retryAfterSignIn() }
                 }
             }
-        }
+        } }
         #else
-        .fullScreenCover(item: $signingIn) { drive in
+        .fullScreenCover(item: $signingIn) { drive in PerceptionView {
             if drive == .xunlei { XunleiSignInView(signedIn: retryAfterSignIn) }
             else { CloudQRLoginView(drive: drive.qrDrive) { retryAfterSignIn() } }
-        }
+        } }
         #endif
         .downloadPicker(isPresented: $choosingDownloads) {
             DownloadPicker(video: video, site: client.site, flag: activeFlag,
@@ -1012,12 +1010,12 @@ struct VideoDetailView: View {
         }
         .confirmationDialog(L10n.text("Choose quality"), isPresented: $choosingQuality, titleVisibility: .visible) {
             if let plan = pendingPlan, let episode = pendingEpisode {
-                ForEach(plan.choices) { choice in
+                ForEach(plan.choices) { choice in PerceptionView {
                     Button(choice.name) { startRequest { await resolve(plan, choice: choice, episode: episode) } }
-                }
+                } }
             }
         }
-    }
+    } }
 
     /// One page on Mac, iPad and Apple TV: the banner, the synopsis, the episodes, then TMDB's cast and facts. An episode
     /// rail beside the banner (once used for long lists, and always on Apple TV) squeezed the banner into a card.
@@ -1104,19 +1102,19 @@ struct VideoDetailView: View {
                 }
                 Spacer(minLength: 0)
                 #if !os(tvOS)
-                Button { withAnimation(.smooth(duration: 0.2)) { playbackIssue = nil } } label: {
+                Button { withAnimation(.smooth(duration: 0.2)) { playbackIssue = nil } } label: { PerceptionView {
                     Image(systemName: "xmark").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
                         .frame(width: 22, height: 22)
                         .background(Color.primary.opacity(0.07), in: Circle())
                         .contentShape(Circle())
-                }
+                } }
                 .buttonStyle(.plain).accessibilityLabel(L10n.text("Dismiss")).help(L10n.text("Dismiss"))
                 #endif
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay { RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.primary.opacity(0.08)) }
+            .overlay { PerceptionView { RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.primary.opacity(0.08)) } }
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
     }
@@ -1180,7 +1178,7 @@ struct VideoDetailView: View {
     @ViewBuilder private func noEpisodes(_ detail: Video) -> some View {
         #if os(iOS)
         if CatPawOpen.configCenter(of: detail, site: client.site) != nil {
-            Button { showsConfigCenter = true } label: { Label(L10n.text("Open Config Center"), systemImage: "gearshape") }
+            Button { showsConfigCenter = true } label: { PerceptionView { Label(L10n.text("Open Config Center"), systemImage: "gearshape") } }
                 .buttonStyle(.borderedProminent)
                 .accessibilityIdentifier("detail.configCenter")
         } else {
@@ -1324,7 +1322,7 @@ struct VideoDetailView: View {
             // The details failed. The error card's buttons are below the full-screen hero, out of the remote's reach,
             // so the hero offers them too; they hold focus, and Back leaves the page again.
             HStack(spacing: 10) {
-                Button { startRequest { await loadDetail() } } label: { Label(L10n.text("Retry"), systemImage: "arrow.clockwise") }
+                Button { startRequest { await loadDetail() } } label: {  Label(L10n.text("Retry"), systemImage: "arrow.clockwise")  }
                     .controlButton(prominent: true).tint(Brand.accent).controlSize(.large)
                     .disabled(busy)
                     .focused($playFocused)
@@ -1336,28 +1334,28 @@ struct VideoDetailView: View {
     }
     #if os(tvOS)
     private func goBackButton(prominent: Bool) -> some View {
-        Button { dismiss() } label: { Label(L10n.text("Go back"), systemImage: "chevron.backward") }
+        Button { dismiss() } label: {  Label(L10n.text("Go back"), systemImage: "chevron.backward")  }
             .controlButton(prominent: prominent).controlSize(.large)
             .accessibilityIdentifier("detail.goBack")
     }
     #endif
     private func playButton(_ episode: Episode) -> some View {
-        Button { startRequest { await play(episode) } } label: {
+        Button { startRequest { await play(episode) } } label: { PerceptionView {
             HStack(spacing: 8) {
                 if loadingEpisode == episode.id { ProgressView().controlSize(.small) } else { Image(systemName: "play.fill") }
                 Text(L10n.text("Play"))
             }
             .font(.headline).lineLimit(1).fixedSize().padding(.horizontal, 8)
-        }
+        } }
         .controlButton(prominent: true).tint(Brand.accent).controlSize(.large)
         .focused($playFocused)
     }
     private func downloadButton(iconOnly: Bool) -> some View {
-        Button { choosingDownloads = true } label: {
+        Button { choosingDownloads = true } label: { PerceptionView {
             Label(L10n.text("Download"), systemImage: "arrow.down.circle")
                 .labelStyle(DownloadLabelStyle(iconOnly: iconOnly))
                 .font(.headline).lineLimit(1).fixedSize()
-        }
+        } }
         .controlButton().controlSize(.large).accessibilityLabel(L10n.text("Download"))
     }
     /// Icon-only, beside Play and Download. An empty heart keeps the control color; a saved one is rose.
@@ -1365,7 +1363,7 @@ struct VideoDetailView: View {
     private var videoFavoriteButton: some View {
         let saved = store.favorites.contains(videoFavorite())
         let title = saved ? L10n.text("Remove %@ from favorites", currentVideo().name) : L10n.text("Add %@ to favorites", currentVideo().name)
-        return Button { store.favorites.toggle(videoFavorite()) } label: {
+        return Button { store.favorites.toggle(videoFavorite()) } label: { PerceptionView {
             Group {
                 if saved {
                     Text(Image(systemName: "heart.fill")).foregroundStyle(Brand.rose)
@@ -1374,7 +1372,7 @@ struct VideoDetailView: View {
                 }
             }
             .font(.headline).lineLimit(1).fixedSize()
-        }
+        } }
         .controlButton().controlSize(.large)
         .accessibilityLabel(title).help(title)
         .accessibilityIdentifier("detail.favorite")
@@ -1400,7 +1398,7 @@ struct VideoDetailView: View {
             } else {
                 HStack(alignment: .top, spacing: 14) {
                     Color.clear.aspectRatio(2.0 / 3.0, contentMode: .fit).frame(width: posterWidth)
-                        .overlay { PosterImage(url: video.poster, headers: video.posterHeaders) }
+                        .overlay { PerceptionView { PosterImage(url: video.poster, headers: video.posterHeaders) } }
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     // As tall as the 2:3 poster, so the buttons line up with its bottom edge.
                     MinHeightLayout(minHeight: posterWidth * 1.5) {
@@ -1472,7 +1470,7 @@ struct VideoDetailView: View {
                 HStack(spacing: 8) {
                     ForEach(flags, id: \.self) { flag in
                         Chip(title: flag.isEmpty ? L10n.text("Play") : flag, selected: flag == activeFlag) { selectedFlag = flag }
-                    }
+                     }
                 }
             }.tvFocusSection()
             #else
@@ -1486,11 +1484,11 @@ struct VideoDetailView: View {
     private func episodeOrderButton(count: Int) -> some View {
         Button { reversesEpisodes.toggle() } label: {
             HStack(spacing: 10) {
-                Image(systemName: reversesEpisodes ? "arrow.down" : "arrow.up").contentTransition(.symbolEffect(.replace))
+                Image(systemName: reversesEpisodes ? "arrow.down" : "arrow.up").compatibleContentTransition(.symbolReplace)
                 Text(L10n.text("Episodes"))
                 Text("\(count)").monospacedDigit().foregroundStyle(.secondary)
             }
-        }
+         }
         .glassPill()
         .accessibilityLabel(L10n.text("Reverse Order"))
         .accessibilityAddTraits(reversesEpisodes ? .isSelected : [])
@@ -1499,12 +1497,12 @@ struct VideoDetailView: View {
     #else
     /// The small button beside the episode count that turns the lists around (倒序).
     private var episodeOrderButton: some View {
-        Button { reversesEpisodes.toggle() } label: {
+        Button { reversesEpisodes.toggle() } label: { PerceptionView {
             Image(systemName: "arrow.up.arrow.down")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(reversesEpisodes ? Brand.accent : Color.secondary)
                 .frame(minWidth: 32, minHeight: 32).contentShape(Rectangle())
-        }
+        } }
         .buttonStyle(.plain)
         .help(L10n.text("Reverse Order"))
         .accessibilityLabel(L10n.text("Reverse Order"))
@@ -1532,16 +1530,16 @@ struct VideoDetailView: View {
             && (stills.values.filter { $0.still != nil }.count * 2 >= items.count || (tmdbPending && items.count <= 60))
         let columns = showsStills ? [GridItem(.adaptive(minimum: TMDBMetrics.episodeTile), spacing: TMDBMetrics.spacing, alignment: .top)]
             : longNames ? rowColumns : [GridItem(.adaptive(minimum: episodeMin), spacing: 8)]
-        return LazyVGrid(columns: columns, spacing: showsStills ? TMDBMetrics.spacing : longNames ? 4 : 8) {
-            ForEach(shownOrder(items)) { episode in
+        return LazyVGrid(columns: columns, spacing: showsStills ? TMDBMetrics.spacing : longNames ? 4 : 8) { PerceptionView {
+            ForEach(shownOrder(items)) { episode in PerceptionView {
                 let saved = download(episode)
                 Group {
                     if showsStills {
-                        Button { startRequest { await play(episode) } } label: {
+                        Button { startRequest { await play(episode) } } label: { PerceptionView {
                             TMDBEpisodeTile(name: episodeTitle(episode), info: stills[episode.id], loading: loadingEpisode == episode.id, width: nil)
-                        }
+                        } }
                         .tmdbCardButton()
-                        .overlay(alignment: .topTrailing) { if saved?.status == .completed { DownloadedBadge().padding(4) } }
+                        .overlay(alignment: .topTrailing) { PerceptionView { if saved?.status == .completed { DownloadedBadge().padding(4) } } }
                         .accessibilityLabel(episode.name)
                     } else if longNames {
                         EpisodeRow(name: episode.name, label: episodeLabels[episode.id], loading: loadingEpisode == episode.id, download: saved) {
@@ -1549,10 +1547,10 @@ struct VideoDetailView: View {
                         }
                     } else {
                         Chip(title: episodeLabels[episode.id] ?? episode.name, selected: loadingEpisode == episode.id, fill: true) { startRequest { await play(episode) } }
-                            .overlay(alignment: .topTrailing) { if saved?.status == .completed { DownloadedBadge() } }
+                            .overlay(alignment: .topTrailing) { PerceptionView { if saved?.status == .completed { DownloadedBadge() } } }
                     }
                 }
-                .overlay(alignment: .topLeading) {
+                .overlay(alignment: .topLeading) { PerceptionView {
                     if store.favorites.contains(episodeFavorite(episode)) {
                         Image(systemName: "heart.fill")
                             .font(.system(size: DownloadMetrics.thumb > 60 ? 18 : 12, weight: .semibold))
@@ -1561,8 +1559,8 @@ struct VideoDetailView: View {
                             .allowsHitTesting(false)
                             .accessibilityHidden(true)
                     }
-                }
-                .contextMenu {
+                } }
+                .contextMenu { PerceptionView {
                     // The file name a label stands for: its resolution and codec can matter on a netdisk line.
                     if episodeLabels[episode.id] != nil { Text(episode.name) }
                     FavoriteMenuButton(item: episodeFavorite(episode), name: episode.name)
@@ -1576,9 +1574,9 @@ struct VideoDetailView: View {
                             DownloadLibrary.shared.remove([saved.id])
                         }
                     }
-                }
-            }
-        }
+                } }
+            } }
+        } }
         #if os(tvOS)
         // Room for the focused glass row, which grows toward the trailing edge.
         .padding(.trailing, 16).padding(.vertical, 6)
@@ -1706,7 +1704,7 @@ struct VideoDetailView: View {
                 VStack(spacing: 0) {
                     Color.clear.frame(height: playerHeight)
                     ScrollView { watchDetails.padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 24) }
-                        .scrollIndicators(.never)
+                        .compatibleScrollIndicators(.never)
                 }
             }
             watchPlayer
@@ -1714,17 +1712,17 @@ struct VideoDetailView: View {
                 .frame(maxWidth: .infinity, maxHeight: fullScreen ? .infinity : nil, alignment: .top)
         }
         // The status bar's strip above the player is the player's black.
-        .background(alignment: .top) { Color.black.frame(height: playerHeight).ignoresSafeArea(edges: .top) }
-        .background { if fullScreen { Color.black.ignoresSafeArea() } }
+        .background(alignment: .top) { PerceptionView { Color.black.frame(height: playerHeight).ignoresSafeArea(edges: .top) } }
+        .background { PerceptionView { if fullScreen { Color.black.ignoresSafeArea() } } }
         .statusBarHidden(true)
         .toolbar(.hidden, for: .navigationBar)
-        .background { EdgeSwipeBack(enabled: !fullScreen) }
+        .background { PerceptionView { EdgeSwipeBack(enabled: !fullScreen) } }
         .toolbar(.hidden, for: .tabBar)
         .onAppear {
             store.watchPageScopes.formUnion(watchScopes)
             PlayerOrientation.holdPortrait(true)
         }
-        .onChange(of: watchScopes) { old, new in
+        .onValueChange(of: watchScopes) { old, new in
             store.watchPageScopes.subtract(old.subtracting(new)); store.watchPageScopes.formUnion(new)
         }
         .onDisappear {
@@ -1734,12 +1732,12 @@ struct VideoDetailView: View {
             if fullScreen { fullScreen = false; PlayerOrientation.set(landscape: false) }
             PlayerOrientation.holdPortrait(false)
         }
-        .onChange(of: watchChannel == nil) { _, ended in
+        .onValueChange(of: watchChannel == nil) { _, ended in
             playerStarted = false
             if ended { playerSession = nil }
             if ended && fullScreen { setFullScreen(landscape: false) }
         }
-        .sheet(isPresented: $showsAllEpisodes) { allEpisodes }
+        .sheet(isPresented: $showsAllEpisodes) { PerceptionView { allEpisodes } }
     }
 
     @ViewBuilder private var watchPlayer: some View {
@@ -1795,28 +1793,28 @@ struct VideoDetailView: View {
                 try? await Task.sleep(for: .seconds(3))
                 if !Task.isCancelled { withAnimation(.smooth(duration: 0.3)) { coverBack = false } }
             }
-            .overlay {
+            .overlay { PerceptionView {
                 if !starting, playable {
-                    Button { playWatchCover() } label: {
+                    Button { playWatchCover() } label: { PerceptionView {
                         Image(systemName: "play.fill").font(.system(size: 22, weight: .semibold))
                             .frame(width: 58, height: 58)
                             .glassSurface(.regular.interactive(), in: Circle())
-                    }
+                    } }
                     .buttonStyle(.plain)
                     .accessibilityLabel(L10n.text("Play"))
                     .accessibilityIdentifier("watch.play")
                 }
-            }
-            .overlay(alignment: .topLeading) {
+            } }
+            .overlay(alignment: .topLeading) { PerceptionView {
                 // While it starts by itself nothing sits on the cover until it's tapped.
                 if !starting || coverBack {
-                    Button { dismiss() } label: { Image(systemName: "chevron.backward").font(.headline).frame(width: 22, height: 22) }
+                    Button { dismiss() } label: { PerceptionView { Image(systemName: "chevron.backward").font(.headline).frame(width: 22, height: 22) } }
                         .chromeButton()
                         .accessibilityLabel(L10n.text("Back"))
                         .padding(8)
                         .transition(.opacity)
                 }
-            }
+            } }
             .foregroundStyle(.white)
             .environment(\.colorScheme, .dark)
     }
@@ -1874,13 +1872,13 @@ struct VideoDetailView: View {
                             episodeOrderButton.glassOrFill(.regular.interactive(), Color.clear, in: Circle())
                             Spacer(minLength: 8)
                             if items.count > (compact ? 5 : 2) {
-                                Button { showsAllEpisodes = true } label: {
+                                Button { showsAllEpisodes = true } label: { PerceptionView {
                                     HStack(spacing: 3) { Text(L10n.text("All")); Image(systemName: "chevron.right").font(.caption.weight(.semibold)) }
                                         .font(.subheadline).foregroundStyle(.secondary)
                                         .padding(.horizontal, 12).frame(minHeight: 32)
                                         .glassOrFill(.regular.interactive(), Color.clear, in: Capsule())
                                         .frame(minHeight: 44).contentShape(Rectangle())
-                                }
+                                } }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier("watch.allEpisodes")
                             }
@@ -1893,17 +1891,17 @@ struct VideoDetailView: View {
                         // scrollPosition rather than ScrollViewReader: scrollTo also scrolls the page's vertical
                         // scroll view, which pushed the title under the player.
                         ScrollView(.horizontal) {
-                            LazyHStack(alignment: .top, spacing: stills.isEmpty ? 8 : 12) { ForEach(shownOrder(items)) { watchEpisodeCard($0, tile: tile, info: stills[$0.id]) } }
-                                .scrollTargetLayout()
+                            LazyHStack(alignment: .top, spacing: stills.isEmpty ? 8 : 12) { PerceptionView { ForEach(shownOrder(items)) { trackedValue0 in PerceptionView { watchEpisodeCard(trackedValue0, tile: tile, info: stills[trackedValue0.id]) } } } }
+                                .compatibleScrollTargetLayout()
                                 .padding(.horizontal, 16)
                         }
-                        .scrollIndicators(.never)
-                        .scrollPosition(id: $episodeScroll, anchor: .center)
+                        .compatibleScrollIndicators(.never)
+                        .compatibleScrollPosition(id: $episodeScroll, anchor: .center)
                         // Edge to edge, unclipped: the tiles' glass shadow ran past the row and was cut off in a band (#293).
                         .scrollClipDisabled()
                         .padding(.horizontal, -16)
                         .onAppear { episodeScroll = currentEpisodeID }
-                        .onChange(of: currentEpisodeID) { _, id in if let id { withAnimation { episodeScroll = id } } }
+                        .onValueChange(of: currentEpisodeID) { _, id in if let id { withAnimation { episodeScroll = id } } }
                     }
                 }
             }
@@ -1921,7 +1919,7 @@ struct VideoDetailView: View {
                 if let same, same.id != currentEpisodeID { startRequest { await play(same) } }
             }
             // Edge to edge and unclipped, like the episodes, so the strip doesn't cut the chips' glass shadow (#293).
-            .contentMargins(.horizontal, 16, for: .scrollContent).scrollClipDisabled()
+            .compatibleScrollMargins(.horizontal, 16).scrollClipDisabled()
             .padding(.horizontal, -16)
         }
     }
@@ -1965,11 +1963,11 @@ struct VideoDetailView: View {
             // The episode already playing keeps playing.
             guard !(current && watchChannel != nil) else { return }
             startRequest { await play(episode) }
-        } label: {
+        } label: { PerceptionView {
             if let info {
                 TMDBEpisodeTile(name: episodeTitle(episode), info: info, current: current, loading: loadingEpisode == episode.id,
                                 width: fill ? nil : 168)
-                    .overlay(alignment: .topTrailing) { if saved?.status == .completed { DownloadedBadge().padding(4) } }
+                    .overlay(alignment: .topTrailing) { PerceptionView { if saved?.status == .completed { DownloadedBadge().padding(4) } } }
             } else {
             HStack(spacing: 6) {
                 if loadingEpisode == episode.id { ProgressView().controlSize(.small) }
@@ -1984,14 +1982,14 @@ struct VideoDetailView: View {
             .frame(maxWidth: fill ? .infinity : nil, alignment: compact ? .center : .leading)
             .glassOrFill(current ? GlassStyle.regular.tint(Brand.accent).interactive() : .regular.interactive(),
                          current ? Brand.accent : Color.primary.opacity(0.06), in: shape)
-            .overlay(alignment: .topTrailing) { if saved?.status == .completed { DownloadedBadge() } }
+            .overlay(alignment: .topTrailing) { PerceptionView { if saved?.status == .completed { DownloadedBadge() } } }
             .contentShape(shape)
             }
-        }
+        } }
         .buttonStyle(.plain)
         .id(episode.id)
         .accessibilityAddTraits(current ? .isSelected : [])
-        .contextMenu {
+        .contextMenu { PerceptionView {
             if episodeLabels[episode.id] != nil { Text(episode.name) }
             if saved == nil || saved?.status == .failed {
                 Button(L10n.text("Download"), systemImage: "arrow.down.circle") {
@@ -2003,7 +2001,7 @@ struct VideoDetailView: View {
                     DownloadLibrary.shared.remove([saved.id])
                 }
             }
-        }
+        } }
     }
 
     private var allEpisodes: some View {
@@ -2015,17 +2013,17 @@ struct VideoDetailView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     watchLines
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: stills.isEmpty ? tile ?? 150 : 160), spacing: stills.isEmpty ? 8 : 12, alignment: .top)],
-                              spacing: stills.isEmpty ? 8 : 14) {
-                        ForEach(shownOrder(items)) { watchEpisodeCard($0, tile: tile, fill: true, info: stills[$0.id]) { showsAllEpisodes = false } }
-                    }
+                              spacing: stills.isEmpty ? 8 : 14) { PerceptionView {
+                        ForEach(shownOrder(items)) { trackedValue0 in PerceptionView { watchEpisodeCard(trackedValue0, tile: tile, fill: true, info: stills[trackedValue0.id]) { showsAllEpisodes = false } } }
+                    } }
                 }
                 .padding(16)
             }
             .navigationTitle(L10n.text("Episodes"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) { episodeOrderButton }
-                ToolbarItem(placement: .confirmationAction) { Button(L10n.text("Done")) { showsAllEpisodes = false } }
+                ToolbarItem(placement: .topBarLeading) { PerceptionView { episodeOrderButton } }
+                ToolbarItem(placement: .confirmationAction) { PerceptionView { Button(L10n.text("Done")) { showsAllEpisodes = false } } }
             }
         }
         .environment(\.glassControls, true)

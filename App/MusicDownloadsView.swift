@@ -13,7 +13,7 @@ struct MusicDownloadsView: View {
     /// Most recently saved first.
     private var saved: [MusicDownload] { library.completed.sorted { ($0.finished ?? $0.created) > ($1.finished ?? $1.created) } }
 
-    var body: some View {
+    var body: some View { PerceptionView {
         let tracks = saved.map(\.track)
         let page = list(tracks)
             .screenBackdrop()
@@ -45,22 +45,22 @@ struct MusicDownloadsView: View {
                 .toolbar(removing: .title)
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
-                        Button { NSWorkspace.shared.open(library.root) } label: { Label(L10n.text("Show in Finder"), systemImage: "folder") }
+                        Button { NSWorkspace.shared.open(library.root) } label: {  Label(L10n.text("Show in Finder"), systemImage: "folder")  }
                             .help(L10n.text("Show in Finder"))
-                    }
+                     }
                 }
                 #endif
         }
-    }
+    } }
 
     private func list(_ tracks: [MusicTrack]) -> some View {
         let pending = library.pending
         return ScrollView {
-            LazyVStack(alignment: .leading, spacing: MusicLayout.rowSpacing) {
+            LazyVStack(alignment: .leading, spacing: MusicLayout.rowSpacing) { PerceptionView {
                 header(tracks).padding(.bottom, 20)
                 if library.items.isEmpty {
-                    ContentUnavailableView(L10n.text("No Downloaded Songs"), systemImage: "arrow.down.circle",
-                                           description: Text(L10n.text("Download a song, album or playlist from its menu to listen without a connection.")))
+                    EmptyState(L10n.text("No Downloaded Songs"), systemImage: "arrow.down.circle",
+                               description: L10n.text("Download a song, album or playlist from its menu to listen without a connection."))
                         .frame(maxWidth: .infinity).padding(.vertical, 60)
                 }
                 if !pending.isEmpty {
@@ -81,7 +81,7 @@ struct MusicDownloadsView: View {
                         }
                         .padding(.bottom, 8)
                         .tvFocusSection()
-                        ForEach(pending) { MusicPendingRow(item: $0) }
+                        ForEach(pending) { trackedValue0 in PerceptionView { MusicPendingRow(item: trackedValue0) } }
                     }
                 }
                 shelf(L10n.text("Playlists"), library.collections.filter { $0.collection.kind == .playlist })
@@ -90,11 +90,11 @@ struct MusicDownloadsView: View {
                     if !pending.isEmpty || !library.collections.isEmpty {
                         SectionHeader(title: L10n.text(library.collections.isEmpty ? "Downloaded" : "Songs")).padding(.top, 24).padding(.bottom, 8)
                     }
-                    ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
+                    ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in PerceptionView {
                         MusicTrackRow(track: track) { store.music.play(MusicQueue(tracks: tracks, start: index, source: Self.title)) }
-                    }
+                    } }
                 }
-            }
+            } }
             .pageContainer()
         }
     }
@@ -114,9 +114,9 @@ struct MusicDownloadsView: View {
             VStack(alignment: .leading, spacing: 12) {
                 SectionHeader(title: title)
                 ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(alignment: .top, spacing: Self.tileSpacing) {
-                        ForEach(collections) { MusicDownloadedTile(entry: $0, size: Self.tile) }
-                    }
+                    LazyHStack(alignment: .top, spacing: Self.tileSpacing) { PerceptionView {
+                        ForEach(collections) { trackedValue0 in PerceptionView { MusicDownloadedTile(entry: trackedValue0, size: Self.tile) } }
+                    } }
                 }
                 .scrollClipDisabled()
             }
@@ -134,19 +134,19 @@ struct MusicDownloadsView: View {
                 .font(.subheadline).monospacedDigit().foregroundStyle(.secondary)
             HStack(spacing: 10) {
                 Group {
-                    Button { store.music.play(MusicQueue(tracks: tracks, start: 0, source: Self.title)) } label: {
+                    Button { store.music.play(MusicQueue(tracks: tracks, start: 0, source: Self.title)) } label: { PerceptionView {
                         Label(L10n.text("Play"), systemImage: "play.fill")
-                    }
+                    } }
                     .controlButton(prominent: true)
-                    Button { store.music.play(MusicQueue.shuffled(tracks, source: Self.title)) } label: {
+                    Button { store.music.play(MusicQueue.shuffled(tracks, source: Self.title)) } label: { PerceptionView {
                         Label(L10n.text("Shuffle"), systemImage: "shuffle")
-                    }
+                    } }
                     .controlButton()
                 }
                 .disabled(tracks.isEmpty)
                 // In plain sight rather than in the toolbar: it also clears songs still on their way.
                 if !library.items.isEmpty {
-                    Button { confirmsDeleteAll = true } label: { Label(L10n.text("Delete Downloads"), systemImage: "trash").labelStyle(.iconOnly) }
+                    Button { confirmsDeleteAll = true } label: { PerceptionView { Label(L10n.text("Delete Downloads"), systemImage: "trash").labelStyle(.iconOnly) } }
                         .controlButton()
                         .help(L10n.text("Delete Downloads"))
                 }
@@ -166,14 +166,14 @@ struct MusicDownloadedCollectionView: View {
     @State private var confirmsRemove = false
     private var library: MusicDownloadLibrary { .shared }
 
-    var body: some View {
+    var body: some View { PerceptionView {
         if let entry = library.collection(id: id) {
             let collection = entry.collection
             let items = library.items(in: entry)
             let tracks = items.filter { $0.status == .completed }.map(\.track)
             let pending = items.filter(\.isPending)
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: MusicLayout.rowSpacing) {
+                LazyVStack(alignment: .leading, spacing: MusicLayout.rowSpacing) { PerceptionView {
                     #if os(macOS)
                     MusicCollectionHeader(collection: collection, tracks: tracks).padding(.bottom, 28)
                     #else
@@ -181,7 +181,7 @@ struct MusicDownloadedCollectionView: View {
                     #endif
                     if !pending.isEmpty {
                         VStack(alignment: .leading, spacing: MusicLayout.rowSpacing) {
-                            ForEach(pending) { MusicPendingRow(item: $0) }
+                            ForEach(pending) { trackedValue0 in PerceptionView { MusicPendingRow(item: trackedValue0) } }
                         }
                         .padding(.bottom, 12)
                     }
@@ -190,13 +190,13 @@ struct MusicDownloadedCollectionView: View {
                         store.music.play(MusicQueue(tracks: tracks, start: $0, collection: collection))
                     }
                     #else
-                    ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
+                    ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in PerceptionView {
                         MusicTrackRow(track: track, number: collection.kind == .album ? index + 1 : nil) {
                             store.music.play(MusicQueue(tracks: tracks, start: index, collection: collection))
                         }
-                    }
+                    } }
                     #endif
-                }
+                } }
                 .glassRowInsets()
                 .pageContainer()
             }
@@ -210,7 +210,7 @@ struct MusicDownloadedCollectionView: View {
             .onPlayPauseCommand { store.music.toggle() }
             #else
             .toolbar {
-                Button { confirmsRemove = true } label: { Image(systemName: "trash") }
+                Button { confirmsRemove = true } label: { PerceptionView { Image(systemName: "trash") } }
                     .help(L10n.text("Remove Download")).accessibilityLabel(L10n.text("Remove Download"))
             }
             #endif
@@ -218,9 +218,9 @@ struct MusicDownloadedCollectionView: View {
                 Button(L10n.text("Remove Download"), role: .destructive) { library.remove(collection: id); dismiss() }
             }
         } else {
-            ContentUnavailableView(L10n.text("No Downloaded Songs"), systemImage: "arrow.down.circle").screenBackdrop()
+            EmptyState(L10n.text("No Downloaded Songs"), systemImage: "arrow.down.circle").screenBackdrop()
         }
-    }
+    } }
 
     private func header(_ collection: MusicCollection, _ tracks: [MusicTrack]) -> some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -235,13 +235,13 @@ struct MusicDownloadedCollectionView: View {
             }
             HStack(spacing: 10) {
                 Group {
-                    Button { store.music.play(MusicQueue(tracks: tracks, collection: collection)) } label: {
+                    Button { store.music.play(MusicQueue(tracks: tracks, collection: collection)) } label: { PerceptionView {
                         Label(L10n.text("Play"), systemImage: "play.fill")
-                    }
+                    } }
                     .controlButton(prominent: true)
-                    Button { store.music.play(MusicQueue.shuffled(tracks, collection: collection)) } label: {
+                    Button { store.music.play(MusicQueue.shuffled(tracks, collection: collection)) } label: { PerceptionView {
                         Label(L10n.text("Shuffle"), systemImage: "shuffle")
-                    }
+                    } }
                     .controlButton()
                 }
                 .disabled(tracks.isEmpty)
@@ -249,7 +249,7 @@ struct MusicDownloadedCollectionView: View {
                 // Apple TV hides the navigation bar, and the toolbar's trash with it.
                 Button(role: .destructive) { confirmsRemove = true } label: {
                     Label(L10n.text("Remove Download"), systemImage: "trash")
-                }
+                 }
                 .controlButton()
                 #endif
             }
@@ -265,13 +265,13 @@ private struct MusicDownloadedTile: View {
     let size: CGFloat
     @State private var hovering = false
 
-    var body: some View {
+    var body: some View { PerceptionView {
         let collection = entry.collection
         let saved = MusicDownloadLibrary.shared.items(in: entry).filter { $0.status == .completed }.count
-        let link = RouteLink { MusicDownloadedCollectionView(id: entry.id) } label: {
+        let link = RouteLink { MusicDownloadedCollectionView(id: entry.id) } label: { PerceptionView {
             VStack(alignment: .leading, spacing: 7) {
                 MusicArtwork(url: collection.artwork, size: size, symbol: collection.kind == .album ? "square.stack" : "music.note.list")
-                    .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.black.opacity(hovering ? 0.12 : 0)) }
+                    .overlay { PerceptionView { RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.black.opacity(hovering ? 0.12 : 0)) } }
                     .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(collection.title).font(Self.titleFont).foregroundStyle(.primary).lineLimit(1)
@@ -281,7 +281,7 @@ private struct MusicDownloadedTile: View {
             }
             .frame(width: size, alignment: .leading)
             .contentShape(.rect)
-        }
+        } }
         #if os(tvOS)
         link.cardButton()
         #else
@@ -289,7 +289,7 @@ private struct MusicDownloadedTile: View {
             .onHover { hovering = $0 }
             .animation(.easeOut(duration: 0.15), value: hovering)
         #endif
-    }
+    } }
 
     #if os(tvOS)
     private static let titleFont = Font.system(size: 24, weight: .semibold), subtitleFont = Font.system(size: 20)
@@ -302,23 +302,23 @@ private struct MusicDownloadedTile: View {
 private struct MusicPendingActions: View {
     let pending: [MusicDownload]
 
-    var body: some View {
+    var body: some View { PerceptionView {
         let library = MusicDownloadLibrary.shared
         let paused = library.isPaused
         HStack(spacing: 8) {
             // Failed songs wait for Retry: with only those left there is nothing to pause.
             if pending.contains(where: { $0.status != .failed }) {
-                Button { paused ? library.resumeAll() : library.pauseAll() } label: {
+                Button { paused ? library.resumeAll() : library.pauseAll() } label: { PerceptionView {
                     Label(L10n.text(paused ? "Resume All" : "Pause All"), systemImage: paused ? "play.fill" : "pause.fill")
-                }
+                } }
             }
             // Busy channels fail a run of songs at once; one press tries them all again.
             if pending.filter({ $0.status == .failed }).count > 1 {
-                Button { library.retryFailed() } label: { Label(L10n.text("Retry All"), systemImage: "arrow.clockwise") }
+                Button { library.retryFailed() } label: { PerceptionView { Label(L10n.text("Retry All"), systemImage: "arrow.clockwise") } }
             }
-            Button(role: .destructive) { library.remove(pending.map(\.id)) } label: {
+            Button(role: .destructive) { library.remove(pending.map(\.id)) } label: { PerceptionView {
                 Label(L10n.text("Cancel All"), systemImage: "xmark")
-            }
+            } }
         }
         .labelStyle(.titleAndIcon)
         #if os(tvOS)
@@ -328,7 +328,7 @@ private struct MusicPendingActions: View {
         .buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small)
         #endif
         .fixedSize()
-    }
+    } }
 }
 
 /// A song on its way: how far it got, or why it stopped, with Retry and Cancel. On Apple TV the row
@@ -337,9 +337,9 @@ private struct MusicPendingRow: View {
     let item: MusicDownload
     @State private var choosing = false
 
-    var body: some View {
+    var body: some View { PerceptionView {
         #if os(tvOS)
-        Button { choosing = true } label: { row.contentShape(.rect) }
+        Button { choosing = true } label: {  row.contentShape(.rect)  }
             .glassRow()
             .confirmationDialog(item.track.title, isPresented: $choosing, titleVisibility: .visible) {
                 if item.status == .failed { Button(L10n.text("Retry")) { MusicDownloadLibrary.shared.retry(item.id) } }
@@ -348,7 +348,7 @@ private struct MusicPendingRow: View {
         #else
         row
         #endif
-    }
+    } }
 
     private var row: some View {
         HStack(spacing: MusicLayout.gap) {
@@ -363,17 +363,17 @@ private struct MusicPendingRow: View {
             DownloadState(status: item.status, fraction: item.fraction)
             #else
             if item.status == .failed {
-                Button { MusicDownloadLibrary.shared.retry(item.id) } label: {
+                Button { MusicDownloadLibrary.shared.retry(item.id) } label: { PerceptionView {
                     Image(systemName: "arrow.clockwise").font(.body.weight(.semibold)).frame(width: 30, height: 30).contentShape(.rect)
-                }
+                } }
                 .buttonStyle(.borderless).help(L10n.text("Retry")).accessibilityLabel(L10n.text("Retry"))
             } else {
                 DownloadState(status: item.status, fraction: item.fraction)
             }
-            Button { MusicDownloadLibrary.shared.remove([item.id]) } label: {
+            Button { MusicDownloadLibrary.shared.remove([item.id]) } label: { PerceptionView {
                 Image(systemName: "xmark").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
                     .frame(width: 30, height: 30).contentShape(.rect)
-            }
+            } }
             .buttonStyle(.borderless).help(L10n.text("Cancel Download")).accessibilityLabel(L10n.text("Cancel Download"))
             #endif
         }
@@ -402,9 +402,9 @@ struct MusicDownloadsLink: View {
     /// On the Downloads page it sits among cards, so it is one too.
     var card = false
 
-    var body: some View {
+    var body: some View { PerceptionView {
         let library = MusicDownloadLibrary.shared
-        RouteLink { MusicDownloadsView() } label: {
+        RouteLink { MusicDownloadsView() } label: { PerceptionView {
             HStack(spacing: MusicLayout.gap) {
                 #if os(iOS)
                 SectionGlyph(section: .downloads, size: MusicLayout.art)
@@ -424,11 +424,11 @@ struct MusicDownloadsLink: View {
             }
             .padding(.vertical, card ? 12 : 6)
             .padding(.horizontal, card ? 14 : 0)
-            .background { if card { Color.clear.contentPanel(cornerRadius: 18) } }
+            .background { PerceptionView { if card { Color.clear.contentPanel(cornerRadius: 18) } } }
             .contentShape(Rectangle())
-        }
+        } }
         .glassRow()
-    }
+    } }
 
     private func details(_ library: MusicDownloadLibrary) -> String {
         var parts = [L10n.text("%lld songs", library.completed.count)]
@@ -444,20 +444,20 @@ struct MusicDownloadsLink: View {
 struct MusicDownloadMenuItems: View {
     let tracks: [MusicTrack]
 
-    var body: some View {
+    var body: some View { PerceptionView {
         let library = MusicDownloadLibrary.shared
         let saved = tracks.compactMap { library.item(for: $0) }
         if tracks.contains(where: { $0.source != nil }) {
             // A source's episode (#289) downloads from its video page.
             EmptyView()
         } else if !tracks.isEmpty, saved.count == tracks.count {
-            Button(role: .destructive) { library.remove(saved.map(\.id)) } label: {
+            Button(role: .destructive) { library.remove(saved.map(\.id)) } label: { PerceptionView {
                 Label(L10n.text(saved.allSatisfy { $0.status == .completed } ? "Remove Download" : "Cancel Download"), systemImage: "trash")
-            }
+            } }
         } else {
-            Button { library.download(tracks) } label: { Label(L10n.text("Download"), systemImage: "arrow.down.circle") }
+            Button { library.download(tracks) } label: { PerceptionView { Label(L10n.text("Download"), systemImage: "arrow.down.circle") } }
         }
-    }
+    } }
 }
 
 /// Downloads an album's or playlist's songs; a check once they are all saved.
@@ -468,7 +468,7 @@ struct MusicDownloadButton: View {
     /// The Mac header's buttons have a fixed size.
     var side: CGFloat?
 
-    var body: some View {
+    var body: some View { PerceptionView {
         let library = MusicDownloadLibrary.shared
         let items = tracks.compactMap { library.item(for: $0) }
         // Songs saved one by one before still leave the button on until the album or playlist is kept too.
@@ -476,14 +476,14 @@ struct MusicDownloadButton: View {
         let queued = kept && !tracks.isEmpty && items.count == tracks.count && !items.contains { $0.status == .failed }
         let done = queued && items.allSatisfy { $0.status == .completed }
         let label = L10n.text(done ? "Downloaded" : queued ? "Downloading" : "Download")
-        Button { library.download(tracks, from: collection) } label: {
+        Button { library.download(tracks, from: collection) } label: { PerceptionView {
             Label(label, systemImage: done ? "checkmark.circle" : queued ? "arrow.down.circle.dotted" : "arrow.down.circle")
                 #if !os(tvOS)
                 .labelStyle(.iconOnly)
                 #endif
                 .frame(width: side, height: side)
-        }
+        } }
         .disabled(tracks.isEmpty || queued)
         .help(label).accessibilityLabel(label)
-    }
+    } }
 }

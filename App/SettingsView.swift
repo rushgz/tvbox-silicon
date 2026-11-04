@@ -291,11 +291,11 @@ extension View {
             let form = formStyle(.grouped).tint(systemAccent)
                 #if os(iOS)
                 // The app's navy canvas, as on every other page, instead of the system's black.
-                .scrollContentBackground(.hidden)
+                .compatibleScrollBackground(.hidden)
                 .background { Backdrop() }
                 #endif
             // Only when there is room to spare: a zero margin would replace the system's own insets.
-            if extra > 0 { form.contentMargins(.horizontal, extra, for: .scrollContent) } else { form }
+            if extra > 0 { form.compatibleScrollMargins(.horizontal, extra) } else { form }
         }
         .screenTitle(title, width: Layout.settingsWidth)
     }
@@ -367,9 +367,8 @@ struct FormSettingsView: View {
         (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String).flatMap { $0.isEmpty ? nil : L10n.text("Version %@", $0) }
     }
 
-    var body: some View {
-        @Bindable var store = store
-        ScrollViewReader { proxy in
+    var body: some View { PerceptionView {
+        ScrollViewReader { proxy in PerceptionView {
         Form { Group {
             heroSection
 
@@ -378,14 +377,14 @@ struct FormSettingsView: View {
             // Two tiles side by side, so the way to the developer reads as a place, not two more rows.
             Section {
                 HStack(spacing: 12) {
-                    Button { showsFeedback = true } label: {
+                    Button { showsFeedback = true } label: { PerceptionView {
                         SettingsTile(symbol: "bubble.left.and.text.bubble.right.fill", tint: Brand.indigo, title: L10n.text("Send Feedback"),
                                      subtitle: L10n.text("Report a problem or share an idea"))
-                    }
-                    Button { openURL(Support.telegram) } label: {
+                    } }
+                    Button { openURL(Support.telegram) } label: { PerceptionView {
                         SettingsTile(symbol: "paperplane.fill", tint: Brand.cyan, title: L10n.text("Telegram Group"),
                                      subtitle: L10n.text("Chat with the developer and other users"), external: true)
-                    }
+                    } }
                 }
                 // Its own style per button, so each tile takes its own taps rather than the row's.
                 .buttonStyle(PressableStyle())
@@ -402,28 +401,28 @@ struct FormSettingsView: View {
             #endif
 
             Section {
-                ForEach(store.subscriptions) { entry in
+                ForEach(store.subscriptions) { entry in PerceptionView {
                     let failure = store.subscriptionErrors[entry.address]
                     FormLink(symbol: failure == nil ? "list.bullet.rectangle.fill" : "exclamationmark.triangle.fill",
                              tint: failure != nil ? .orange : entry.enabled ? .blue : .gray,
                              title: entry.title, value: store.subscriptionValue(entry), warning: failure != nil) {
                         SubscriptionDetailView(entry: entry)
                     }
-                }
+                } }
                 if store.subscriptions.count > 1 {
                     FormLink(symbol: "trash.fill", tint: .red, title: L10n.text("Remove Subscriptions")) { RemoveSubscriptionsView() }
                 }
                 #if os(iOS)
                 // One row instead of an always-open field and three text buttons; the address goes in a sheet.
-                Button { addingSubscription = true } label: {
+                Button { addingSubscription = true } label: { PerceptionView {
                     FormLabel(symbol: "plus", tint: .green, title: L10n.text("Add Subscription")).foregroundStyle(.primary)
-                }
+                } }
                 #else
-                TextField(L10n.text("Subscription URL (TVBox JSON, M3U or TXT)"), text: $store.subscriptionAddress, prompt: Text(L10n.text("Subscription URL (TVBox JSON, M3U or TXT)")))
+                TextField(L10n.text("Subscription URL (TVBox JSON, M3U or TXT)"), text: binding(store, \.subscriptionAddress), prompt: Text(L10n.text("Subscription URL (TVBox JSON, M3U or TXT)")))
                     .labelsHidden()
                     .autocorrectionDisabled()
                     .onSubmit { add() }
-                TextField(L10n.text("Name (optional)"), text: $store.subscriptionName, prompt: Text(L10n.text("Name (optional)")))
+                TextField(L10n.text("Name (optional)"), text: binding(store, \.subscriptionName), prompt: Text(L10n.text("Name (optional)")))
                     .labelsHidden()
                     .onSubmit { add() }
                 subscriptionActions
@@ -437,9 +436,9 @@ struct FormSettingsView: View {
                         ProgressView().controlSize(.small)
                     } else if !store.subscriptions.isEmpty {
                         // Quiet, in the header's own grey: a page of settings has no one blue action.
-                        Button { Task { await store.refreshSubscriptions() } } label: {
+                        Button { Task { await store.refreshSubscriptions() } } label: { PerceptionView {
                             Label(L10n.text("Refresh All"), systemImage: "arrow.clockwise")
-                        }
+                        } }
                         .font(.footnote.weight(.semibold)).textCase(nil).tint(.secondary)
                     }
                 }
@@ -463,7 +462,7 @@ struct FormSettingsView: View {
                     FormLabel(symbol: "icloud.fill", tint: .blue, title: L10n.text("iCloud Sync"))
                 }
                 .settingsSwitch()
-                .onChange(of: syncsWithICloud) { _, on in store.cloudSync?.setEnabled(on) }
+                .onValueChange(of: syncsWithICloud) { _, on in store.cloudSync?.setEnabled(on) }
             } footer: {
                 Text(SettingsNote.iCloud)
             }
@@ -498,12 +497,12 @@ struct FormSettingsView: View {
                         ForEach(DanmakuArea.allCases, id: \.self) { Text($0.title).tag($0) }
                     } label: {
                         FormLabel(symbol: "rectangle.tophalf.inset.filled", tint: .teal, title: L10n.text("Danmaku Area"))
-                    }
+                     }
                     Toggle(isOn: $receivesCasts) {
                         FormLabel(symbol: "tv.and.mediabox.fill", tint: BilibiliMark.blue, title: L10n.text("Cast from the Bilibili App"),
                                   subtitle: L10n.text("With your phone on the same network, tap the TV button in a Bilibili video and choose %@.", L10n.text("Yingxia")))
                     }
-                    .onChange(of: receivesCasts) { _, on in
+                    .onValueChange(of: receivesCasts) { _, on in
                         if on { BilibiliCastController.shared.start(store) } else { BilibiliCastController.shared.stop() }
                     }
                 }
@@ -512,7 +511,7 @@ struct FormSettingsView: View {
                               subtitle: L10n.text("With Yingxia open here, your other devices on the same network can send it what they play: tap Play On in their player."))
                 }
                 .settingsSwitch()
-                .onChange(of: receivesPlayOn) { _, on in
+                .onValueChange(of: receivesPlayOn) { _, on in
                     if on { PlayOnController.shared.start(store) } else { PlayOnController.shared.stop() }
                 }
                 Toggle(isOn: $showsPlaybackInfo) {
@@ -557,7 +556,7 @@ struct FormSettingsView: View {
                     FormLabel(symbol: "ladybug.fill", tint: .red, title: L10n.text("Send Error Reports"), subtitle: errorReportsNote)
                 }
                 .settingsSwitch()
-                .onChange(of: sendsErrorReports) { _, on in if !on { ErrorReports.shared.discard() } }
+                .onValueChange(of: sendsErrorReports) { _, on in if !on { ErrorReports.shared.discard() } }
                 Toggle(isOn: $looksUpTMDB) {
                     FormLabel(symbol: "film.stack.fill", tint: .teal, title: L10n.text("Look Up Titles on TMDB"), subtitle: tmdbNote)
                 }
@@ -580,7 +579,7 @@ struct FormSettingsView: View {
                 if Updates.channel != .none {
                 Button {
                     if updates.available.isEmpty { Task { await updates.check(manual: true) } } else { updates.show() }
-                } label: {
+                } label: { PerceptionView {
                     HStack(spacing: 8) {
                         FormLabel(symbol: "arrow.triangle.2.circlepath", tint: .gray, title: L10n.text("Software Update"))
                             .foregroundStyle(.primary).lineLimit(1).layoutPriority(1)
@@ -589,7 +588,7 @@ struct FormSettingsView: View {
                         else if !updates.available.isEmpty { NewBadge() }
                         else { Text(updates.lastChecked == nil ? L10n.text("Check Now") : L10n.text("Up to Date")).foregroundStyle(.secondary).lineLimit(1) }
                     }
-                }
+                } }
                 // Rows that act in place still read like the rows around them, not like links.
                 .tint(.primary)
                 .disabled(updates.checking)
@@ -624,14 +623,14 @@ struct FormSettingsView: View {
             Section {
                 if updates.available.isEmpty, Updates.channel != .none {
                     LabeledContent {
-                        Button { Task { await updates.check(manual: true) } } label: {
+                        Button { Task { await updates.check(manual: true) } } label: { PerceptionView {
                             if updates.checking { ProgressView().controlSize(.small) } else { Text(L10n.text("Check Now")) }
-                        }
+                        } }
                         .disabled(updates.checking)
-                    } label: {
+                    } label: { PerceptionView {
                         FormLabel(symbol: "checkmark.circle.fill", tint: .green, title: L10n.text("Yingxia is up to date"),
                                   subtitle: updates.lastChecked.map { L10n.text("Last checked %@", $0.formatted(date: .abbreviated, time: .shortened)) })
-                    }
+                    } }
                 }
                 #if os(macOS)
                 if let installer = updates.installer {
@@ -665,11 +664,11 @@ struct FormSettingsView: View {
             proxy.scrollTo("settings.end", anchor: .bottom)
         }
         #endif
-        }
+        } }
         .settingsForm(L10n.text("Settings"))
         #if os(iOS)
-        .sheet(isPresented: $addingSubscription) { AddSubscriptionSheet() }
-        .navigationDestination(isPresented: $showsFeedback) { FeedbackView() }
+        .sheet(isPresented: $addingSubscription) { PerceptionView { AddSubscriptionSheet() } }
+        .navigationDestination(isPresented: $showsFeedback) { PerceptionView { FeedbackView() } }
         #if DEBUG
         // `-qaAddSubscription 1` opens the sheet for screenshots.
         .onAppear { if UserDefaults.standard.bool(forKey: "qaAddSubscription") { addingSubscription = true } }
@@ -678,7 +677,7 @@ struct FormSettingsView: View {
         // Refreshed whenever Settings reappears, so a sign-in on the account page shows here.
         .onAppear { bilibiliSummary = BilibiliAccount.load().summary; douyinSummary = DouyinAccount.load().summary; cloudSummary = CloudProvider.summary() }
         .task(id: store.extrasUnlocked) { if store.extrasUnlocked { await ContributorList.shared.check() } }
-    }
+    } }
 
     @ViewBuilder private var heroSection: some View {
         #if os(iOS)
@@ -688,7 +687,7 @@ struct FormSettingsView: View {
             VStack(spacing: 0) {
                 // The row clips what it draws, so the glow stays small enough to fade out inside it.
                 AppMark(size: 96)
-                    .background { AppMark(size: 96).blur(radius: 22).opacity(0.7).accessibilityHidden(true) }
+                    .background { PerceptionView { AppMark(size: 96).blur(radius: 22).opacity(0.7).accessibilityHidden(true) } }
                     .padding(.top, 36).padding(.bottom, 18)
                 Text(L10n.text("Yingxia")).font(.system(size: 32, weight: .bold, design: .rounded))
                 HStack(spacing: 6) {
@@ -736,10 +735,10 @@ struct FormSettingsView: View {
                 Button(action: updates.show) {
                     LabeledContent {
                         NewBadge()
-                    } label: {
+                    } label: { PerceptionView {
                         FormLabel(symbol: "gift.fill", tint: Brand.cyan, title: title,
                                   subtitle: L10n.text("New features are waiting for you."))
-                    }
+                    } }
                 }.formRowButton()
             }
         }
@@ -840,14 +839,14 @@ struct PlaybackSettingsView: View {
     @AppStorage(VideoEnhancement.upscaleKey) private var upscalesVideo = false
     @AppStorage(VideoEnhancement.smoothKey) private var smoothsVideo = false
     @AppStorage(PlaybackInfo.key) private var showsPlaybackInfo = false
-    var body: some View {
+    var body: some View { PerceptionView {
         SettingsPage(title: L10n.text("Playback"), symbol: "slider.horizontal.below.rectangle") {
             SettingsGroup(footer: L10n.text("Touch and hold the video to play at this speed. Slide sideways to change it, or slide down to keep it after you let go.")) {
                 Picker(selection: $holdSpeed) {
                     ForEach(SpeedBoost.startRates, id: \.self) { Text($0.formatted(.number.precision(.fractionLength(0...2))) + "×").tag($0) }
-                } label: {
+                } label: { PerceptionView {
                     FormLabel(symbol: "forward.fill", tint: .orange, title: L10n.text("Touch and Hold Speed"))
-                }
+                } }
             }
             SettingsGroup(footer: L10n.text("Slide up or down on the left of the video to change the brightness, or on the right to change the volume.")) {
                 Toggle(isOn: $slidesLevels) {
@@ -869,9 +868,9 @@ struct PlaybackSettingsView: View {
                     .settingsSwitch()
                     Picker(selection: $danmakuArea) {
                         ForEach(DanmakuArea.allCases, id: \.self) { Text($0.title).tag($0) }
-                    } label: {
+                    } label: { PerceptionView {
                         FormLabel(symbol: "rectangle.tophalf.inset.filled", tint: .teal, title: L10n.text("Danmaku Area"))
-                    }
+                    } }
                 }
             }
             if VideoEnhancement.canUpscale || VideoEnhancement.canSmooth {
@@ -891,7 +890,7 @@ struct PlaybackSettingsView: View {
                 }
             }
         }
-    }
+    } }
 }
 
 /// The two switches that send something off the device, each with what it sends.
@@ -905,7 +904,7 @@ struct PrivacySettingsView: View {
                     FormLabel(symbol: "ladybug.fill", tint: .red, title: L10n.text("Send Error Reports"))
                 }
                 .settingsSwitch()
-                .onChange(of: sendsErrorReports) { _, on in if !on { ErrorReports.shared.discard() } }
+                .onValueChange(of: sendsErrorReports) { _, on in if !on { ErrorReports.shared.discard() } }
             }
             SettingsGroup(footer: SettingsNote.tmdb) {
                 Toggle(isOn: $looksUpTMDB) {
@@ -926,19 +925,18 @@ private struct AddSubscriptionSheet: View {
     @State private var choosesFile = false
     private var canAdd: Bool { !store.importing && !store.subscriptionAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
-    var body: some View {
-        @Bindable var store = store
+    var body: some View { PerceptionView {
         NavigationStack {
             Form { Group {
                 Section {
-                    TextField(L10n.text("Subscription URL (TVBox JSON, M3U or TXT)"), text: $store.subscriptionAddress, prompt: Text(L10n.text("Subscription URL (TVBox JSON, M3U or TXT)")))
+                    TextField(L10n.text("Subscription URL (TVBox JSON, M3U or TXT)"), text: binding(store, \.subscriptionAddress), prompt: Text(L10n.text("Subscription URL (TVBox JSON, M3U or TXT)")))
                         .labelsHidden()
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never).keyboardType(.URL)
                         .submitLabel(.done)
                         .focused($focused)
                         .onSubmit(add)
-                    TextField(L10n.text("Name (optional)"), text: $store.subscriptionName, prompt: Text(L10n.text("Name (optional)")))
+                    TextField(L10n.text("Name (optional)"), text: binding(store, \.subscriptionName), prompt: Text(L10n.text("Name (optional)")))
                         .labelsHidden()
                         .submitLabel(.done)
                         .onSubmit(add)
@@ -948,28 +946,28 @@ private struct AddSubscriptionSheet: View {
                 }
                 // Offered, never filled in or imported on its own.
                 Section {
-                    Button { store.subscriptionAddress = Store.defaultURL } label: {
+                    Button { store.subscriptionAddress = Store.defaultURL } label: { PerceptionView {
                         FormLabel(symbol: "sparkles", tint: Brand.indigo, title: L10n.text("Use a Demo URL"))
                             .foregroundStyle(.primary)
-                    }
+                    } }
                 }
                 Section {
-                    Button { choosesFile = true } label: {
+                    Button { choosesFile = true } label: { PerceptionView {
                         FormLabel(symbol: "doc.badge.plus", tint: .orange, title: L10n.text("Add from File…"))
                             .foregroundStyle(.primary)
-                    }
+                    } }
                     .disabled(store.importing)
                 } footer: { Text(L10n.text("A TVBox JSON subscription, or one Python (.py) or JavaScript (.js) spider.")) }
             }.settingsRows() }
             .settingsForm(L10n.text("Add Subscription"))
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                ToolbarItem(placement: .cancellationAction) { PerceptionView {
                     Button(L10n.text("Cancel")) { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
+                } }
+                ToolbarItem(placement: .confirmationAction) { PerceptionView {
                     if store.importing { ProgressView() }
                     else { Button(L10n.text("Add"), action: add).fontWeight(.semibold).disabled(!canAdd) }
-                }
+                } }
             }
         }
         .presentationDetents([.medium, .large])
@@ -981,7 +979,7 @@ private struct AddSubscriptionSheet: View {
                 if store.error == nil { dismiss() }
             }
         }
-    }
+    } }
 
     private func add() {
         guard canAdd else { return }
@@ -1004,7 +1002,7 @@ private struct SubscriptionDetailView: View {
     @Environment(\.dismiss) private var dismiss
     let entry: SubscriptionEntry
     @State private var confirmsRemoval = false
-    var body: some View {
+    var body: some View { PerceptionView {
         let current = store.subscriptions.first { $0.address == entry.address } ?? entry
         let index = store.subscriptions.firstIndex { $0.address == entry.address } ?? 0
         let failure = store.subscriptionErrors[entry.address]
@@ -1043,7 +1041,7 @@ private struct SubscriptionDetailView: View {
         .confirmationDialog(L10n.text("Remove"), isPresented: $confirmsRemoval) {
             Button(L10n.text("Remove"), role: .destructive) { store.removeSubscription(current); dismiss() }
         }
-    }
+    } }
 }
 
 /// Removing many subscriptions at once: tick them, or take all or the switched-off ones, then remove.
@@ -1052,7 +1050,7 @@ private struct RemoveSubscriptionsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selection: Set<String> = []
     @State private var confirmsRemoval = false
-    var body: some View {
+    var body: some View { PerceptionView {
         let chosen = store.subscriptions.filter { selection.contains($0.address) }
         let all = chosen.count == store.subscriptions.count
         let off = store.subscriptions.filter { !$0.enabled }.map(\.address)
@@ -1062,11 +1060,11 @@ private struct RemoveSubscriptionsView: View {
                 if !off.isEmpty { Button(L10n.text("Select Turned-Off Subscriptions")) { selection = Set(off) } }
             }
             Section {
-                ForEach(store.subscriptions) { entry in
+                ForEach(store.subscriptions) { entry in PerceptionView {
                     let selected = selection.contains(entry.address)
                     Button {
                         if selected { selection.remove(entry.address) } else { selection.insert(entry.address) }
-                    } label: {
+                    } label: { PerceptionView {
                         HStack(spacing: 10) {
                             Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                                 .foregroundStyle(selected ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
@@ -1074,10 +1072,10 @@ private struct RemoveSubscriptionsView: View {
                             Spacer(minLength: 6)
                             Text(store.subscriptionValue(entry)).lineLimit(1).foregroundStyle(.secondary)
                         }
-                    }
+                    } }
                     .formRowButton()
                     .accessibilityAddTraits(selected ? [.isSelected] : [])
-                }
+                } }
             }
             Section {
                 Button(L10n.text("Remove %lld Subscriptions", chosen.count), role: .destructive) { confirmsRemoval = true }
@@ -1088,7 +1086,7 @@ private struct RemoveSubscriptionsView: View {
         .confirmationDialog(L10n.text("Remove %lld Subscriptions", chosen.count), isPresented: $confirmsRemoval) {
             Button(L10n.text("Remove"), role: .destructive) { store.removeSubscriptions(Set(chosen.map(\.address))); dismiss() }
         }
-    }
+    } }
 }
 
 /// Playing a media address directly.
@@ -1096,7 +1094,7 @@ private struct PlayURLView: View {
     @Environment(Store.self) private var store
     @State private var address = ""
     private var empty: Bool { address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-    var body: some View {
+    var body: some View { PerceptionView {
         Form { Group {
             Section {
                 TextField(L10n.text("HTTP / HTTPS media URL"), text: $address, prompt: Text(L10n.text("HTTP / HTTPS media URL")))
@@ -1114,7 +1112,7 @@ private struct PlayURLView: View {
             }
         }.settingsRows() }
         .settingsForm(L10n.text("Play a URL"))
-    }
+    } }
     private func open() {
         guard !empty else { return }
         do { store.playing = Channel(name: L10n.text("URL Playback"), url: try WebAddress.resolve(address)) }
@@ -1191,7 +1189,7 @@ struct DiagnosticsView: View {
             (search.isEmpty || "\($0.category) \($0.message)".localizedCaseInsensitiveContains(search))
         }
     }
-    var body: some View {
+    var body: some View { PerceptionView {
         VStack(alignment: .leading, spacing: 18) {
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .top) { heading; Spacer(minLength: 24); actions }
@@ -1211,7 +1209,7 @@ struct DiagnosticsView: View {
                 .font(.caption).foregroundStyle(.secondary).padding(.horizontal, DiagnosticGrid.inset).padding(.vertical, 12)
             }
             .background(SettingsStyle.groupFill, in: RoundedRectangle(cornerRadius: SettingsStyle.radius, style: .continuous))
-            .overlay { RoundedRectangle(cornerRadius: SettingsStyle.radius, style: .continuous).strokeBorder(Color.primary.opacity(0.06)) }
+            .overlay { PerceptionView { RoundedRectangle(cornerRadius: SettingsStyle.radius, style: .continuous).strokeBorder(Color.primary.opacity(0.06)) } }
             .clipShape(RoundedRectangle(cornerRadius: SettingsStyle.radius, style: .continuous))
             Text(L10n.text("Shows the latest 1,000 events from this run. Export includes retained log files."))
                 .font(.caption).foregroundStyle(.secondary)
@@ -1225,7 +1223,7 @@ struct DiagnosticsView: View {
         .frame(maxWidth: Layout.maxWidth).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .screenBackdrop()
         .screenTitle(L10n.text("Diagnostic Logs"))
-        .sheet(item: $selected) { entry in DiagnosticDetail(entry: entry) }
+        .sheet(item: $selected) { entry in PerceptionView { DiagnosticDetail(entry: entry) } }
         .task {
             await refresh()
             while !Task.isCancelled {
@@ -1233,7 +1231,7 @@ struct DiagnosticsView: View {
                 if live { await refresh() }
             }
         }
-    }
+    } }
     private var heading: some View {
         VStack(alignment: .leading, spacing: 6) {
             #if !os(tvOS)
@@ -1249,25 +1247,25 @@ struct DiagnosticsView: View {
         }.controlSize(.regular)
     }
     @ViewBuilder private var actionButtons: some View {
-            Button { live.toggle() } label: {
+            Button { live.toggle() } label: { PerceptionView {
                 Label(L10n.text(live ? "Pause Logs" : "Resume Logs"), systemImage: live ? "pause.fill" : "play.fill")
-            }.controlButton()
-            Button { Task { await refresh() } } label: {
+            } }.controlButton()
+            Button { Task { await refresh() } } label: { PerceptionView {
                 Image(systemName: "arrow.clockwise").frame(width: 16, height: 16)
-            }.controlButton().accessibilityLabel(L10n.text("Refresh Logs")).help(L10n.text("Refresh Logs"))
-            Menu {
-                Button { export() } label: { Label(L10n.text("Export Logs"), systemImage: "square.and.arrow.up") }.disabled(exporting)
+            } }.controlButton().accessibilityLabel(L10n.text("Refresh Logs")).help(L10n.text("Refresh Logs"))
+            Menu { PerceptionView {
+                Button { export() } label: { PerceptionView { Label(L10n.text("Export Logs"), systemImage: "square.and.arrow.up") } }.disabled(exporting)
                 #if os(macOS)
                 Button { NSWorkspace.shared.open(Diagnostics.shared.directory) } label: {
                     Label(L10n.text("Open Log Folder"), systemImage: "folder")
-                }
+                 }
                 #endif
                 #if !os(tvOS)
                 if let exportURL { ShareLink(item: exportURL) { Label(L10n.text("Share Logs"), systemImage: "square.and.arrow.up") } }
                 #endif
-            } label: {
+            } } label: { PerceptionView {
                 Label(L10n.text(exporting ? "Exporting Logs…" : "Log Files"), systemImage: "doc.text")
-            }.controlButton()
+            } }.controlButton()
     }
     private var filters: some View {
         VStack(spacing: 14) {
@@ -1275,7 +1273,7 @@ struct DiagnosticsView: View {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                 TextField(L10n.text("Search Logs"), text: $search).textFieldStyle(.plain).autocorrectionDisabled()
                 if !search.isEmpty {
-                    let clear = Button { search = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                    let clear = Button { search = "" } label: { PerceptionView { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) } }
                         .accessibilityLabel(L10n.text("Clear Search"))
                     #if os(tvOS)
                     clear.glassPill()
@@ -1289,9 +1287,9 @@ struct DiagnosticsView: View {
             ChipRow {
                 HStack(spacing: 6) {
                     levelButton("all", title: L10n.text("All Logs"), count: entries.count, color: Brand.accent)
-                    ForEach(LogLevel.allCases, id: \.rawValue) { item in
+                    ForEach(LogLevel.allCases, id: \.rawValue) { item in PerceptionView {
                         levelButton(item.rawValue, title: item.title, count: entries.filter { $0.level == item }.count, color: item.tint)
-                    }
+                    } }
                 }
             }
         }
@@ -1301,7 +1299,7 @@ struct DiagnosticsView: View {
         // The glass chips of every other filter on the TV, with the level's dot and its count.
         Chip(title: "\(title) \(count)", selected: level == value, dot: value == "all" ? nil : color) { level = value }
         #else
-        Button { level = value } label: {
+        Button { level = value } label: { PerceptionView {
             HStack(spacing: 7) {
                 if value != "all" { Circle().fill(color).frame(width: 5, height: 5) }
                 Text(title).fontWeight(.semibold)
@@ -1309,14 +1307,14 @@ struct DiagnosticsView: View {
             }
             .font(.caption).padding(.horizontal, 12).padding(.vertical, 8)
             .background(level == value ? color.opacity(0.14) : .clear, in: Capsule())
-            .overlay { Capsule().strokeBorder(level == value ? color.opacity(0.35) : .clear, lineWidth: 1) }
+            .overlay { PerceptionView { Capsule().strokeBorder(level == value ? color.opacity(0.35) : .clear, lineWidth: 1) } }
             .contentShape(Capsule())
-        }.buttonStyle(.plain).accessibilityAddTraits(level == value ? .isSelected : [])
+        } }.buttonStyle(.plain).accessibilityAddTraits(level == value ? .isSelected : [])
         #endif
     }
     private var logList: some View {
         let visible = filtered
-        return GeometryReader { geometry in
+        return GeometryReader { geometry in PerceptionView {
             #if os(tvOS)
             let compact = true
             #else
@@ -1337,26 +1335,23 @@ struct DiagnosticsView: View {
                     Divider()
                 }
                 ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(visible) { entry in
-                            Button { selected = entry } label: { DiagnosticRow(entry: entry, compact: compact).foregroundStyle(.primary) }
+                    LazyVStack(spacing: 0) { PerceptionView {
+                        ForEach(visible) { entry in PerceptionView {
+                            Button { selected = entry } label: { PerceptionView { DiagnosticRow(entry: entry, compact: compact).foregroundStyle(.primary) } }
                                 .glassRow()
                             Divider().padding(.horizontal, DiagnosticGrid.inset)
-                        }
-                    }
+                        } }
+                    } }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .overlay {
+                .overlay { PerceptionView {
                     if visible.isEmpty {
-                        ContentUnavailableView {
-                            Label(L10n.text("No Logs"), systemImage: "waveform.path")
-                        } description: {
-                            Text(L10n.text(search.isEmpty && level == "all" ? "Plugin activity will appear here." : "Try another level or search term."))
-                        }
+                        EmptyState(L10n.text("No Logs"), systemImage: "waveform.path",
+                                   description: L10n.text(search.isEmpty && level == "all" ? "Plugin activity will appear here." : "Try another level or search term."))
                     }
-                }
+                } }
             }
-        }
+        } }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     private func export() {
@@ -1549,7 +1544,7 @@ struct TVSettingsView: View {
             }
             TVSettingsSection(footer: L10n.text("Keeps favorites, Continue Watching, subscriptions, and the sources you pinned, hid or ordered the same on your devices signed in to the same iCloud account. Accounts, passwords and downloads stay on each device.")) {
                 TVSettingsToggle(title: L10n.text("iCloud Sync"), isOn: $syncsWithICloud)
-                    .onChange(of: syncsWithICloud) { _, on in store.cloudSync?.setEnabled(on) }
+                    .onValueChange(of: syncsWithICloud) { _, on in store.cloudSync?.setEnabled(on) }
             }
             TVSettingsSection {
                 TVSettingsLink(title: L10n.text("Watch Now")) { WatchNowSettingsView() }
@@ -1559,12 +1554,12 @@ struct TVSettingsView: View {
                     TVSettingsToggle(title: L10n.text("Show Danmaku"), isOn: $showsDanmaku)
                     TVSettingsAction(title: L10n.text("Danmaku Area"), value: danmakuArea.title) { danmakuArea = danmakuArea.next }
                     TVSettingsToggle(title: L10n.text("Cast from the Bilibili App"), isOn: $receivesCasts)
-                        .onChange(of: receivesCasts) { _, on in
+                        .onValueChange(of: receivesCasts) { _, on in
                             if on { BilibiliCastController.shared.start(store) } else { BilibiliCastController.shared.stop() }
                         }
                 }
                 TVSettingsToggle(title: L10n.text("Play from Other Devices"), isOn: $receivesPlayOn)
-                    .onChange(of: receivesPlayOn) { _, on in
+                    .onValueChange(of: receivesPlayOn) { _, on in
                         if on { PlayOnController.shared.start(store) } else { PlayOnController.shared.stop() }
                     }
                 TVSettingsLink(title: L10n.text("Play a URL")) { TVPlayURLPage() }
@@ -1584,7 +1579,7 @@ struct TVSettingsView: View {
                 if store.extrasUnlocked { TVSettingsLink(title: L10n.text("JAR Runtime and Compatibility")) { RuntimeView() } }
                 TVSettingsLink(title: L10n.text("Diagnostic Logs")) { DiagnosticsView() }
                 TVSettingsToggle(title: L10n.text("Send Error Reports"), isOn: $sendsErrorReports)
-                    .onChange(of: sendsErrorReports) { _, on in if !on { ErrorReports.shared.discard() } }
+                    .onValueChange(of: sendsErrorReports) { _, on in if !on { ErrorReports.shared.discard() } }
                 TVSettingsToggle(title: L10n.text("Look Up Titles on TMDB"), isOn: $looksUpTMDB)
             }
             if updates.available.isEmpty, Updates.channel != .none { updateSection }
@@ -1598,7 +1593,7 @@ struct TVSettingsView: View {
         // Refreshed whenever Settings reappears, so a sign-in on the account page shows here.
         .onAppear { bilibiliSummary = BilibiliAccount.load().summary; douyinSummary = DouyinAccount.load().summary; cloudSummary = CloudProvider.summary() }
         .task(id: store.extrasUnlocked) { if store.extrasUnlocked { await ContributorList.shared.check() } }
-    }
+     }
 
     private var playbackFooter: String {
         let phones = L10n.text("With Yingxia open here, your other devices on the same network can send it what they play: tap Play On in their player.")
@@ -1611,7 +1606,7 @@ struct TVSettingsView: View {
             ForEach(store.subscriptions) { entry in
                 let failed = store.subscriptionErrors[entry.address] != nil
                 TVSettingsLink(title: entry.title, value: store.subscriptionValue(entry), warning: failed) { TVSubscriptionPage(entry: entry) }
-            }
+             }
             TVSettingsLink(title: L10n.text("Add Subscription")) { TVAddSubscriptionPage() }
             if store.subscriptions.count > 1 { TVSettingsLink(title: L10n.text("Remove Subscriptions")) { TVRemoveSubscriptionsPage() } }
             if !store.subscriptions.isEmpty {
@@ -1807,7 +1802,7 @@ struct TVSettingsField: View {
         }
         // Closing the alert any way but Cancel keeps the text. tvOS 18 also shows the text field as a second
         // button under it, which closes the alert without running any action, so a typed address was lost (#291).
-        .onChange(of: editing) { _, open in
+        .onValueChange(of: editing) { _, open in
             if !open, !cancelled { text = draft.trimmingCharacters(in: .whitespacesAndNewlines) }
         }
     }
@@ -1870,7 +1865,7 @@ private struct TVSubscriptionPage: View {
         .confirmationDialog(L10n.text("Remove"), isPresented: $confirmsRemoval) {
             Button(L10n.text("Remove"), role: .destructive) { store.removeSubscription(current); dismiss() }
         }
-    }
+     }
 }
 
 /// Removing many subscriptions at once: tick them, or take all or the switched-off ones, then remove.
@@ -1897,10 +1892,10 @@ private struct TVRemoveSubscriptionsPage: View {
                         TVSettingsRowLabel(title: entry.title, value: store.subscriptionValue(entry)) {
                             Image(systemName: selected ? "checkmark.circle.fill" : "circle").font(.system(size: 30))
                         }
-                    }
+                     }
                     .glassRow()
                     .accessibilityAddTraits(selected ? [.isSelected] : [])
-                }
+                 }
             }
             TVSettingsSection {
                 TVSettingsAction(title: L10n.text("Remove %lld Subscriptions", chosen.count), destructive: true) { confirmsRemoval = true }
@@ -1910,7 +1905,7 @@ private struct TVRemoveSubscriptionsPage: View {
         .confirmationDialog(L10n.text("Remove %lld Subscriptions", chosen.count), isPresented: $confirmsRemoval) {
             Button(L10n.text("Remove"), role: .destructive) { store.removeSubscriptions(Set(chosen.map(\.address))); dismiss() }
         }
-    }
+     }
 }
 
 /// Adding a subscription: the address, then add it or fill in the default one.
@@ -1918,12 +1913,11 @@ private struct TVAddSubscriptionPage: View {
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
     var body: some View {
-        @Bindable var store = store
         let empty = store.subscriptionAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         TVSettingsSubpage(symbol: "plus.rectangle.on.rectangle", title: L10n.text("Add Subscription")) {
             TVSettingsSection(title: L10n.text("Subscription"), footer: store.error ?? store.notice) {
-                TVSettingsField(title: L10n.text("Subscription URL (TVBox JSON, M3U or TXT)"), text: $store.subscriptionAddress)
-                TVSettingsField(title: L10n.text("Name (optional)"), text: $store.subscriptionName)
+                TVSettingsField(title: L10n.text("Subscription URL (TVBox JSON, M3U or TXT)"), text: binding(store, \.subscriptionAddress))
+                TVSettingsField(title: L10n.text("Name (optional)"), text: binding(store, \.subscriptionName))
                 TVSettingsAction(title: store.importing ? L10n.text("Importing…") : L10n.text("Add Subscription"), busy: store.importing) {
                     Task {
                         let before = store.subscriptions.count
@@ -1935,7 +1929,7 @@ private struct TVAddSubscriptionPage: View {
                 TVSettingsAction(title: L10n.text("Use a Demo URL")) { store.subscriptionAddress = Store.defaultURL }
             }
         }
-    }
+     }
 }
 
 /// Playing a media address directly.
@@ -1953,7 +1947,7 @@ private struct TVPlayURLPage: View {
                 .disabled(address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-    }
+     }
 }
 #endif
 
@@ -2029,37 +2023,37 @@ struct ContributorsSection: View {
                     .padding(.horizontal, 28).padding(.vertical, 12)
                     .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
                     .accessibilityElement(children: .combine)
-                }
+                 }
             }
         }
-    }
+     }
 }
 #else
 /// Everyone with commits in the last 30 days, most first; a row opens the person's GitHub page.
 struct ContributorsSection: View {
     @Environment(\.openURL) private var openURL
     private var list: ContributorList { .shared }
-    var body: some View {
+    var body: some View { PerceptionView {
         if !list.people.isEmpty {
             Section {
-                ForEach(list.people.prefix(ContributorList.shown)) { person in
-                    Button { if let profile = person.profile { openURL(profile) } } label: {
+                ForEach(list.people.prefix(ContributorList.shown)) { person in PerceptionView {
+                    Button { if let profile = person.profile { openURL(profile) } } label: { PerceptionView {
                         HStack(spacing: 8) {
                             Label { Text(person.login).lineLimit(1) } icon: { ContributorAvatar(person: person, size: FormMetrics.icon) }
                                 .foregroundStyle(.primary).layoutPriority(1)
                             Spacer(minLength: 0)
                             Text(ContributorList.commits(person.commits)).foregroundStyle(.secondary).lineLimit(1)
                         }
-                    }
+                    } }
                     .tint(.primary)
                     .formRowButton()
-                }
+                } }
             } header: {
                 Text(L10n.text("Contributors"))
             } footer: {
                 Text(L10n.text("Ranked by commits in the last 30 days."))
             }
         }
-    }
+    } }
 }
 #endif

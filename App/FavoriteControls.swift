@@ -9,22 +9,22 @@ struct FavoriteHeartButton: View {
     var onArtwork = false
     /// An empty artwork heart stays hidden until this is true. A saved heart ignores it.
     var revealed = true
-    var body: some View {
+    var body: some View { PerceptionView {
         let on = store.favorites.contains(item)
         let shown = on || !onArtwork || revealed
-        Button { store.favorites.toggle(item) } label: {
+        Button { store.favorites.toggle(item) } label: { PerceptionView {
             Image(systemName: on ? "heart.fill" : "heart")
                 .font(onArtwork ? .system(size: 13, weight: .semibold) : .title3)
                 .foregroundStyle(on ? Brand.rose : (onArtwork ? Color.white : Color.secondary))
-                .contentTransition(.symbolEffect(.replace))
+                .compatibleContentTransition(.symbolReplace)
                 .artworkBadge(onArtwork)
-        }
+        } }
         .buttonStyle(.plain)
         .opacity(shown ? 1 : 0)
         .allowsHitTesting(shown)
         .accessibilityHidden(!shown)
         .accessibilityLabel(on ? L10n.text("Remove %@ from favorites", name) : L10n.text("Add %@ to favorites", name))
-    }
+    } }
 }
 
 extension View {
@@ -56,14 +56,14 @@ struct FavoriteMenuButton: View {
     @Environment(Store.self) private var store
     let item: FavoriteItem
     let name: String
-    var body: some View {
+    var body: some View { PerceptionView {
         let on = store.favorites.contains(item)
         // A menu row is short: the title is already on the card it was opened from.
         Button(L10n.text(on ? "Unlike" : "Like"), systemImage: on ? "heart.slash" : "heart") {
             store.favorites.toggle(item)
         }
         .accessibilityLabel(on ? L10n.text("Remove %@ from favorites", name) : L10n.text("Add %@ to favorites", name))
-    }
+    } }
 }
 
 /// A control on poster artwork beside the heart: a white glyph on the same badge. A destructive one turns rose under

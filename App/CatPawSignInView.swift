@@ -18,7 +18,7 @@ struct CatPawSignInView: View {
     @State private var withoutApp = false
     @State private var attempt = 0
 
-    var body: some View {
+    var body: some View { PerceptionView {
         NavigationStack {
             // Side by side on an iPad or Mac; stacked on a phone.
             ViewThatFits(in: .horizontal) {
@@ -33,14 +33,14 @@ struct CatPawSignInView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button(L10n.text("Cancel")) { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { PerceptionView { Button(L10n.text("Cancel")) { dismiss() } } }
             }
         }
         #if os(macOS)
         .frame(minWidth: 640, minHeight: 380)
         #endif
         .task(id: attempt) { await run() }
-    }
+    } }
 
     private var details: some View {
         VStack(alignment: .leading, spacing: 28) {
@@ -58,7 +58,7 @@ struct CatPawSignInView: View {
             VStack(alignment: .leading, spacing: 14) {
                 #if os(iOS)
                 if let link = signIn?.link, !expired, error == nil {
-                    Button { open(link) } label: { Label(L10n.text("Open in UC Browser"), systemImage: "arrow.up.forward.app") }
+                    Button { open(link) } label: { PerceptionView { Label(L10n.text("Open in UC Browser"), systemImage: "arrow.up.forward.app") } }
                         .settingsButton(prominent: true)
                         .accessibilityIdentifier("catPawSignIn.open")
                     if withoutApp {

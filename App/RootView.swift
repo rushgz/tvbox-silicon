@@ -88,8 +88,7 @@ struct RootView: View {
         #endif
         return busy
     }
-    var body: some View {
-        @Bindable var store = store
+    var body: some View { PerceptionView {
         Group {
             #if os(macOS)
             NavigationSplitView {
@@ -102,13 +101,13 @@ struct RootView: View {
                 NavigationStack(path: $detailPath) { content(store.section).musicBar().routeDestinations() }
                     .environment(\.openRoute, RouteOpener { detailPath.append($0) })
             }
-            .onChange(of: store.section) { detailPath = NavigationPath() }
+            .onValueChange(of: store.section) { detailPath = NavigationPath() }
             .overlay {
                 if nowPlayingShown { MusicMacNowPlaying().ignoresSafeArea().transition(.move(edge: .bottom)) }
-            }
-            .background { NowPlayingWindowChrome(active: hidesToolbar, store: store) }
-            .background { MusicMiniPlayerTrigger() }
-            .onChange(of: store.music.presentsPlayer && store.music.track != nil) { _, show in
+             }
+            .background {  NowPlayingWindowChrome(active: hidesToolbar, store: store)  }
+            .background {  MusicMiniPlayerTrigger()  }
+            .onValueChange(of: store.music.presentsPlayer && store.music.track != nil) { _, show in
                 // Hiding the toolbar moves the page under it. The player slides up over the window
                 // first and the toolbar goes once it is covered; closing brings the toolbar back
                 // before the player slides away.
@@ -127,31 +126,31 @@ struct RootView: View {
             platformTabs
             #endif
         }
-        .onChange(of: store.section) { _, section in
+        .onValueChange(of: store.section) { _, section in
             if section != .search { store.searchModel.suspend() }
         }
         // A Baidu or Aliyun line waiting for its plugin's sign-in code to be scanned.
-        .sheet(item: Binding(get: { PluginSignIn.shared.prompt }, set: { if $0 == nil { PluginSignIn.shared.dismiss() } })) {
-            PluginSignInView(prompt: $0)
-        }
+        .sheet(item: Binding(get: { PluginSignIn.shared.prompt }, set: { if $0 == nil { PluginSignIn.shared.dismiss() } })) { trackedValue0 in PerceptionView {
+            PluginSignInView(prompt: trackedValue0)
+        } }
         #if os(tvOS)
-        .fullScreenCover(isPresented: Binding(get: { store.music.presentsPlayer }, set: { store.music.presentsPlayer = $0 })) { MusicPlayerScreen() }
+        .fullScreenCover(isPresented: Binding(get: { store.music.presentsPlayer }, set: { store.music.presentsPlayer = $0 })) {  MusicPlayerScreen()  }
         #endif
         // A video and a song never play over each other. The song stops rather than pausing, so its strip
         // doesn't stay over the video and every page after it (#289); where it was stays saved, and
         // Music's Continue Playing picks it up.
-        .onChange(of: store.playing) { _, channel in if channel != nil { store.music.stop() } }
-        .modifier(PlayerPresentation(playing: $store.playing))
+        .onValueChange(of: store.playing) { _, channel in if channel != nil { store.music.stop() } }
+        .modifier(PlayerPresentation(playing: binding(store, \.playing)))
         #if os(tvOS) || os(macOS)
         // What another device sent, while it opens.
-        .overlay { PlayOnIncoming().animation(.spring(duration: 0.4), value: PlayOnController.shared.incoming?.title) }
+        .overlay {  PlayOnIncoming().animation(.spring(duration: 0.4), value: PlayOnController.shared.incoming?.title)  }
         #endif
         .updatePresentation(updates, playing: store.playing != nil)
         .announcementPresentation(announcements, blocked: messageWaits)
         .alert(L10n.text("Unable to Complete"), isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
             Button(L10n.text("OK"), role: .cancel) { store.error = nil }
         } message: { Text(store.error ?? "") }
-    }
+    } }
 
     #if !os(macOS)
     #if os(iOS)
@@ -169,14 +168,14 @@ struct RootView: View {
             .musicSidebarHeader()
             // Now Playing is not a page: choosing it opens the full-screen player over the section
             // the viewer was in. The sidebar selects on a click, not on focus, so passing it opens nothing.
-            .onChange(of: store.section) { previous, section in
+            .onValueChange(of: store.section) { previous, section in
                 guard section == .nowPlaying else { return }
                 store.section = previous == .nowPlaying ? .music : previous
                 store.music.presentsPlayer = true
             }
             // tvOS 17: a section in More opens there, whether a button or the Now Playing tab moved it in.
-            .onChange(of: store.section) { _, section in openInMore(section) }
-            .onChange(of: tvMore) { _, more in
+            .onValueChange(of: store.section) { _, section in openInMore(section) }
+            .onValueChange(of: tvMore) { _, more in
                 if more.isEmpty && store.section == .more { store.section = morePath.isEmpty ? .home : moreSection }
                 else { openInMore(store.section) }
             }
@@ -185,20 +184,20 @@ struct RootView: View {
             .minimizesTabBarOnScroll()
             .musicAccessory(enabled: store.music.showsStrip(videoPlaying: store.playing != nil) && phoneTabs)
             // Opened from the mini player; swiping down closes it, as in Music.
-            .sheet(isPresented: Binding(get: { store.music.presentsPlayer }, set: { store.music.presentsPlayer = $0 })) { MusicNowPlayingScreen() }
-            .onChange(of: store.section) { _, section in
+            .sheet(isPresented: Binding(get: { store.music.presentsPlayer }, set: { store.music.presentsPlayer = $0 })) { PerceptionView { MusicNowPlayingScreen() } }
+            .onValueChange(of: store.section) { _, section in
                 if phoneTabs && inMore.contains(section) {
                     moreSection = section; morePath = NavigationPath([section])
                     store.section = .more
                 }
             }
             // Closing iPhone Duo narrows the side bar back to four: a section that just left it opens inside More.
-            .onChange(of: barSlots) { _, _ in
+            .onValueChange(of: barSlots) { _, _ in
                 if phoneTabs && inMore.contains(store.section) {
                     moreSection = store.section; morePath = NavigationPath([store.section]); store.section = .more
                 }
             }
-            .onChange(of: phoneTabs) { _, phone in
+            .onValueChange(of: phoneTabs) { _, phone in
                 if !phone && store.section == .more { store.section = morePath.isEmpty ? .settings : moreSection }
                 else if phone && inMore.contains(store.section) {
                     moreSection = store.section; morePath = NavigationPath([store.section]); store.section = .more
@@ -208,21 +207,20 @@ struct RootView: View {
     }
 
     @ViewBuilder private var tabView: some View {
-        @Bindable var store = store
         if #available(iOS 18, tvOS 18, *) {
-            TabView(selection: $store.section) {
+            TabView(selection: binding(store, \.section)) {
                 ForEach(tabs) { item in
-                    Tab(value: item) { tabPage(item) } label: { tabLabel(item) }
+                    Tab(value: item) { tabPage(item) } label: { PerceptionView { tabLabel(item) } }
                         #if os(iOS)
                         .badge(tabBadge(item))
                         #endif
-                }
+                 }
             }
             .tabViewStyle(.sidebarAdaptable)
         } else {
             // tvOS 17 and iOS 17 have no Tab or sidebar: the classic tab bar, along the top on Apple TV and at the
             // bottom on iPad too.
-            TabView(selection: $store.section) {
+            TabView(selection: binding(store, \.section)) {
                 ForEach(tabs) { item in
                     tabPage(item).tabItem { tabLabel(item) }.tag(item)
                         #if os(iOS)
@@ -238,7 +236,7 @@ struct RootView: View {
             NavigationStack(path: $morePath) {
                 content(.more).routeDestinations()
                     // Any section can be moved into More, so any can be pushed here.
-                    .navigationDestination(for: AppSection.self) { content($0).tvDefaultControls() }
+                    .navigationDestination(for: AppSection.self) { trackedValue0 in PerceptionView { content(trackedValue0).tvDefaultControls() } }
             }
             .environment(\.openRoute, RouteOpener { morePath.append($0) })
         } else { RouteStack { content(item).tvDefaultControls() } }
@@ -342,9 +340,9 @@ private struct PlayerPresentation: ViewModifier {
     #if os(macOS)
     @State private var playerWindow = PlayerWindowController()
     #endif
-    func body(content: Content) -> some View {
+    func body(content: Content) -> some View { PerceptionView {
         #if os(macOS)
-        content.onChange(of: playing, initial: true) { _, channel in
+        content.onValueChange(of: playing, initial: true) { _, channel in
             if let channel {
                 playerWindow.present(channel, store: store) { playing = nil }
             } else {
@@ -357,11 +355,11 @@ private struct PlayerPresentation: ViewModifier {
         // queued episode would stop and load.
         // An iPhone watch page plays its own video at the top of the page (`VideoDetailView`).
         content.fullScreenCover(item: Binding(get: { store.playsInWatchPage(playing) ? nil : playing.map(PlayerSlot.init) },
-                                              set: { if $0 == nil, !store.playsInWatchPage(playing) { playing = nil } })) {
-            PlaybackView(channel: $0.channel)
-        }
+                                              set: { if $0 == nil, !store.playsInWatchPage(playing) { playing = nil } })) { trackedValue0 in PerceptionView {
+            PlaybackView(channel: trackedValue0.channel)
+        } }
         #endif
-    }
+    } }
 }
 
 #if os(macOS)
@@ -392,15 +390,15 @@ private struct MacSidebar: View {
                                        shortcut: (ordered.firstIndex(of: item).map { $0 + 1 }).flatMap { $0 < 10 ? Character(String($0)) : nil }) {
                                 store.section = item
                             }
-                        }
+                         }
                     }
-                }
+                 }
             }
             .padding(.horizontal, 10).padding(.top, 6).padding(.bottom, 12)
         }
-        .scrollIndicators(.never)
-        .safeAreaInset(edge: .bottom, spacing: 0) { SidebarStatus() }
-    }
+        .compatibleScrollIndicators(.never)
+        .safeAreaInset(edge: .bottom, spacing: 0) {  SidebarStatus()  }
+     }
 }
 
 private struct SidebarRow: View {
@@ -511,11 +509,10 @@ private struct RouteStack<Root: View>: View {
     @State private var stack = RoutePath()
     private let root: Root
     init(@ViewBuilder root: () -> Root) { self.root = root() }
-    var body: some View {
-        @Bindable var stack = stack
-        NavigationStack(path: $stack.path) { root.routeDestinations() }
+    var body: some View { PerceptionView {
+        NavigationStack(path: binding(stack, \.path)) { root.routeDestinations() }
             .environment(\.openRoute, stack.opener)
-    }
+    } }
 }
 
 /// A stack's path, and the one `openRoute` that pushes onto it for the stack's whole life.

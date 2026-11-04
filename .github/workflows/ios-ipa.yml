@@ -216,7 +216,7 @@ jobs:
             <key>method</key><string>development</string>
             <key>signingStyle</key><string>manual</string>
             <key>provisioningProfiles</key><dict>
-              <key>com.tvbox.yingxia.ios</key><string>${{ steps.signing.outputs.profile }}</string>
+              <key>com.jo32.yingxia.ios</key><string>${{ steps.signing.outputs.profile }}</string>
             </dict>
           </dict></plist>
           PLIST

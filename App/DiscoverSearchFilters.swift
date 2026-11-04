@@ -56,7 +56,7 @@ struct DiscoverSearchFilters: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) { editor }
                 .padding(.horizontal, 16).padding(.vertical, 12)
-        }.scrollIndicators(.hidden)
+        }.compatibleScrollIndicators(.hidden)
             .frame(idealHeight: panelHeight, maxHeight: panelHeight)
             .glassSurface(.regular.tint((scheme == .dark ? Color(red: 0.27, green: 0.23, blue: 0.31) : Color(red: 0.94, green: 0.91, blue: 0.97)).opacity(0.65)), in: RoundedRectangle(cornerRadius: 28))
             .accessibilityIdentifier("discover.filter.panel")

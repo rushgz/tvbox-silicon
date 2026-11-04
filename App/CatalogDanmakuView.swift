@@ -173,13 +173,12 @@ struct CatalogDanmakuSettingsView: View {
     @State private var work: Task<Void, Never>?
     @State private var showsImporter = false
 
-    var body: some View {
-        @Bindable var model = model
+    var body: some View { PerceptionView {
         NavigationStack {
             Form {
                 Section {
-                    Toggle(L10n.text("Show Danmaku"), isOn: $model.enabled).settingsSwitch().accessibilityIdentifier("danmaku.enabled")
-                    Toggle(L10n.text("Automatically match the current episode"), isOn: $model.automatic)
+                    Toggle(L10n.text("Show Danmaku"), isOn: binding(model, \.enabled)).settingsSwitch().accessibilityIdentifier("danmaku.enabled")
+                    Toggle(L10n.text("Automatically match the current episode"), isOn: binding(model, \.automatic))
                         .settingsSwitch()
                         .accessibilityIdentifier("danmaku.automatic")
                     Text(L10n.text("Matching comments appear automatically. If none match or the service is unavailable, the video stays clear."))
@@ -192,13 +191,13 @@ struct CatalogDanmakuSettingsView: View {
                         Text(L10n.text("Loaded %lld comments", model.comments.count)).foregroundStyle(.secondary)
                         HStack {
                             Text(L10n.text("Opacity"))
-                            Slider(value: $model.opacity, in: 0.2...1)
+                            Slider(value: binding(model, \.opacity), in: 0.2...1)
                         }
                         HStack {
                             Text(L10n.text("Text Size"))
-                            Slider(value: $model.fontSize, in: 16...36, step: 2)
+                            Slider(value: binding(model, \.fontSize), in: 16...36, step: 2)
                         }
-                        Stepper(value: $model.offset, in: -300...300, step: 0.5) {
+                        Stepper(value: binding(model, \.offset), in: -300...300, step: 0.5) {
                             Text(L10n.text("Time Offset: %@ s", String(format: "%+.1f", model.offset)))
                         }
                         Text(L10n.text("A positive offset shows comments later. Playback controls stay available."))
@@ -219,18 +218,18 @@ struct CatalogDanmakuSettingsView: View {
                     if let anime = selectedAnime {
                         Button(L10n.text("Back to search results")) { work?.cancel(); busy = false; selectedAnime = nil; episodes = []; error = nil }
                         Text(anime.title).font(.headline)
-                        ForEach(episodes) { episode in
+                        ForEach(episodes) { episode in PerceptionView {
                             Button(episode.title) { load(episode, anime: anime) }.disabled(busy).accessibilityIdentifier("danmaku.episode." + episode.id)
-                        }
+                        } }
                     } else {
-                        ForEach(animes) { anime in
-                            Button { select(anime) } label: {
+                        ForEach(animes) { anime in PerceptionView {
+                            Button { select(anime) } label: { PerceptionView {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(anime.title)
                                     if !anime.type.isEmpty { Text(anime.type).font(.caption).foregroundStyle(.secondary) }
                                 }
-                            }.disabled(busy).accessibilityIdentifier("danmaku.anime." + anime.id)
-                        }
+                            } }.disabled(busy).accessibilityIdentifier("danmaku.anime." + anime.id)
+                        } }
                         if searched && animes.isEmpty && !busy && error == nil {
                             Text(L10n.text("No danmaku found. Try another title or server.")).foregroundStyle(.secondary)
                         }
@@ -245,7 +244,7 @@ struct CatalogDanmakuSettingsView: View {
                         #if os(iOS)
                         .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
                         #endif
-                        .onChange(of: server) { _, _ in
+                        .onValueChange(of: server) { _, _ in
                             work?.cancel(); busy = false; animes = []; episodes = []; selectedAnime = nil; searched = false; error = nil
                         }
                     Button(L10n.text("Use Default URL")) { server = CatalogDanmakuClient.defaultServer }
@@ -253,7 +252,7 @@ struct CatalogDanmakuSettingsView: View {
                   footer: { Text(L10n.text("Uses the official Dandanplay service. You can also enter your own compatible server.")) }
             }
             .navigationTitle(L10n.text("Danmaku"))
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.text("Done")) { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { PerceptionView { Button(L10n.text("Done")) { dismiss() } } } }
         }
         #if os(macOS)
         .frame(minWidth: 520, idealWidth: 560, minHeight: 500)
@@ -267,7 +266,7 @@ struct CatalogDanmakuSettingsView: View {
             do { try model.importFile(result.get()); dismiss() }
             catch { self.error = error.localizedDescription }
         }
-    }
+    } }
 
     private var status: String {
         switch model.automaticState {

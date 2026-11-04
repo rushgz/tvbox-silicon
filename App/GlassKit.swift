@@ -112,13 +112,25 @@ extension View {
     @ViewBuilder func onScrolledIntoView(threshold: Double, _ action: @escaping (Bool) -> Void) -> some View {
         if #available(iOS 18, tvOS 18, *) {
             onScrollVisibilityChange(threshold: threshold, action)
-        } else {
+        } else if #available(iOS 17, *) {
             onGeometryChange(for: Bool.self) { geometry in
                 let own = CGRect(origin: .zero, size: geometry.size)
                 guard own.width * own.height > 0, let viewport = geometry.bounds(of: .scrollView) else { return false }
                 let shown = own.intersection(viewport)
                 return !shown.isNull && shown.width * shown.height >= own.width * own.height * threshold
             } action: { action($0) }
+        } else {
+            #if os(iOS)
+            onGeometryChange(for: Bool.self) { geometry in
+                let frame = geometry.frame(in: .global)
+                let viewport = UIScreen.main.bounds
+                let visible = frame.intersection(viewport)
+                return frame.width * frame.height > 0 && !visible.isNull
+                    && visible.width * visible.height >= frame.width * frame.height * threshold
+            } action: { action($0) }
+            #else
+            self
+            #endif
         }
     }
 
@@ -133,9 +145,9 @@ extension View {
     @ViewBuilder func breathingSymbol() -> some View {
         if #available(iOS 18, tvOS 18, *) {
             symbolEffect(.breathe, options: .repeat(.periodic(delay: 2.5)))
-        } else {
+        } else if #available(iOS 17, tvOS 17, *) {
             symbolEffect(.pulse, options: .repeating.speed(0.4))
-        }
+        } else { self }
     }
 }
 
@@ -143,13 +155,16 @@ extension Color {
     /// `mix(with:by:)`; before iOS 18 and tvOS 18 a plain blend in sRGB.
     func blend(with other: Color, by fraction: Double) -> Color {
         if #available(iOS 18, tvOS 18, *) { return mix(with: other, by: fraction) }
-        let environment = EnvironmentValues()
-        let from = resolve(in: environment), to = other.resolve(in: environment)
-        // Resolved components are linear; blending gamma-encoded values looks closer to mix's perceptual default.
-        func encoded(_ linear: Float) -> Double { Double(pow(max(0, linear), 1 / 2.2)) }
-        func mixed(_ a: Float, _ b: Float) -> Double { encoded(a) + (encoded(b) - encoded(a)) * fraction }
-        return Color(.sRGB, red: mixed(from.red, to.red), green: mixed(from.green, to.green), blue: mixed(from.blue, to.blue),
-                     opacity: Double(from.opacity + (to.opacity - from.opacity) * Float(fraction)))
+        if #available(iOS 17, tvOS 17, *) {
+            let environment = EnvironmentValues()
+            let from = resolve(in: environment), to = other.resolve(in: environment)
+            // Resolved components are linear; encode them before blending.
+            func encoded(_ linear: Float) -> Double { Double(pow(max(0, linear), 1 / 2.2)) }
+            func mixed(_ a: Float, _ b: Float) -> Double { encoded(a) + (encoded(b) - encoded(a)) * fraction }
+            return Color(.sRGB, red: mixed(from.red, to.red), green: mixed(from.green, to.green), blue: mixed(from.blue, to.blue),
+                         opacity: Double(from.opacity + (to.opacity - from.opacity) * Float(fraction)))
+        }
+        return compatibleMix(with: other, by: fraction)
     }
 }
 
@@ -1323,7 +1338,7 @@ struct ErrorStateCard: View {
         .frame(maxWidth: recoveryWidth)
         .contentPanel(cornerRadius: 28)
         .frame(maxWidth: .infinity)
-        .onChange(of: details) { showsDetails = false }
+        .onValueChange(of: details) { showsDetails = false }
     }
 
     private var recoveryWidth: CGFloat {

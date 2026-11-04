@@ -43,18 +43,18 @@ enum DanmakuPreference {
 #if !os(tvOS)
 /// Text size and opacity for the player's danmaku menu, next to the area, for whatever comments are playing.
 struct DanmakuStylePickers: View {
-    @Bindable var model: CatalogDanmakuModel
+    let model: CatalogDanmakuModel
 
-    var body: some View {
-        Picker(selection: $model.fontSize) {
+    var body: some View { PerceptionView {
+        Picker(selection: binding(model, \.fontSize)) {
             ForEach(DanmakuStyle.fontSizes(including: model.fontSize), id: \.self) { Text(verbatim: "\(Int($0.rounded()))").tag($0) }
-        } label: { Label(L10n.text("Text Size"), systemImage: "textformat.size") }
+        } label: { PerceptionView { Label(L10n.text("Text Size"), systemImage: "textformat.size") } }
         .pickerStyle(.menu)
-        Picker(selection: $model.opacity) {
+        Picker(selection: binding(model, \.opacity)) {
             ForEach(DanmakuStyle.opacities(including: model.opacity), id: \.self) { Text(verbatim: "\(Int(($0 * 100).rounded()))%").tag($0) }
-        } label: { Label(L10n.text("Opacity"), systemImage: "circle.lefthalf.filled") }
+        } label: { PerceptionView { Label(L10n.text("Opacity"), systemImage: "circle.lefthalf.filled") } }
         .pickerStyle(.menu)
-    }
+    } }
 }
 #endif
 
@@ -327,7 +327,7 @@ struct DanmakuListView: View {
                 }
                 .padding(.horizontal, 10).padding(.bottom, 80)
             }
-            .scrollIndicators(.hidden)
+            .compatibleScrollIndicators(.hidden)
             // Rows fade out under the search field instead of being cut off.
             .mask {
                 VStack(spacing: 0) {
@@ -339,7 +339,7 @@ struct DanmakuListView: View {
             .onScrollByHand { following = false }
             .overlay {
                 if items.isEmpty {
-                    ContentUnavailableView.search(text: query)
+                    EmptyState(L10n.text("No Results"), systemImage: "magnifyingglass", description: L10n.text("No matches for “%@”.", query))
                 }
             }
             .overlay(alignment: .bottom) {
@@ -362,8 +362,8 @@ struct DanmakuListView: View {
             }
             .animation(.smooth(duration: 0.3), value: following)
             .onAppear { follow(proxy, animated: false) }
-            .onChange(of: now) { _, _ in if following { follow(proxy, animated: true) } }
-            .onChange(of: query) { _, text in if text.isEmpty { follow(proxy, animated: false) } }
+            .onValueChange(of: now) { _, _ in if following { follow(proxy, animated: true) } }
+            .onValueChange(of: query) { _, text in if text.isEmpty { follow(proxy, animated: false) } }
         }
     }
 
@@ -500,8 +500,7 @@ extension View {
         #if os(iOS)
         self.presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
-            .presentationBackground(.ultraThinMaterial)
-            .presentationCornerRadius(28)
+            .modifier(DanmakuSheetChrome())
             .preferredColorScheme(.dark)
         #else
         self.frame(width: 520, height: 640)

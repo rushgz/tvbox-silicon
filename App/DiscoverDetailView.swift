@@ -28,17 +28,17 @@ struct DiscoverDetailView: View {
     private var dark: Bool { model.paint?.isDark ?? true }
     private var seasons: [TMDBMatch.SeasonSummary] { details?.seasons.filter { $0.number > 0 } ?? [] }
 
-    var body: some View {
+    var body: some View { PerceptionView {
         page
         .modifier(DiscoverSearchPresentation(isPresented: $searchShown))
         .onAppear { onScreen = true }
         .onDisappear { onScreen = false }
         .task(id: item.key) { await model.load(item) }
-        .onChange(of: details?.id) { _, _ in
+        .onValueChange(of: details?.id) { _, _ in
             if seasonNumber == nil { seasonNumber = seasons.first?.number }
         }
         .task(id: seasonNumber) { await loadSeason() }
-        .sheet(isPresented: $overviewShown) {
+        .sheet(isPresented: $overviewShown) { PerceptionView {
             NavigationStack {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
@@ -47,17 +47,17 @@ struct DiscoverDetailView: View {
                         Text(details?.overview ?? item.overview).font(.body).lineSpacing(5).selectable()
                     }.padding(24)
                 }.navigationTitle(L10n.text("Overview"))
-                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.text("Done")) { overviewShown = false } } }
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { PerceptionView { Button(L10n.text("Done")) { overviewShown = false } } } }
             }.presentationDetents([.medium, .large]).discoverSheetSize(width: 560, height: 480)
-        }
+        } }
         #if os(tvOS)
         // Full-screen pages, as the TV presents things: the iPhone's sheets froze the TV app when they opened.
-        .fullScreenCover(item: $episode) { selection in tvEpisodeScreen(selection.value) }
+        .fullScreenCover(item: $episode) { selection in  tvEpisodeScreen(selection.value)  }
         .fullScreenCover(item: $still) { selection in
             ZStack { Color.black; TMDBArtwork(url: selection.url, maxPixels: 2400, fill: false) }.ignoresSafeArea()
-        }
+         }
         #else
-        .sheet(item: $episode) { selection in
+        .sheet(item: $episode) { selection in PerceptionView {
             NavigationStack {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
@@ -67,47 +67,47 @@ struct DiscoverDetailView: View {
                         sourceButton
                     }.padding(20)
                 }.navigationTitle(selection.value.name)
-                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.text("Done")) { episode = nil } } }
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { PerceptionView { Button(L10n.text("Done")) { episode = nil } } } }
             }.presentationDetents([.medium, .large]).discoverSheetSize(width: 600, height: 640)
-        }
-        .sheet(item: $still) { selection in
+        } }
+        .sheet(item: $still) { selection in PerceptionView {
             NavigationStack {
                 TMDBArtwork(url: selection.url, maxPixels: 2400, fill: false)
                     .background(.black).ignoresSafeArea(edges: .bottom)
-                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.text("Done")) { still = nil } } }
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { PerceptionView { Button(L10n.text("Done")) { still = nil } } } }
             }.preferredColorScheme(.dark).discoverSheetSize(width: 1000, height: 640)
-        }
+        } }
         #endif
         #if os(tvOS)
         // The system player, full screen: the iPhone's sheet with SwiftUI's VideoPlayer froze the TV app.
         .fullScreenCover(isPresented: $trailerShown) {
             if let trailer = details?.trailer { DiscoverTVTrailerScreen(trailer: trailer) }
-        }
-        .fullScreenCover(isPresented: $tvOverviewShown) { tvOverviewScreen }
+         }
+        .fullScreenCover(isPresented: $tvOverviewShown) {  tvOverviewScreen  }
         #elseif os(iOS)
         // The movie player, full screen: SwiftUI's VideoPlayer in a sheet had no full screen, Fill or speed (#300).
-        .fullScreenCover(isPresented: $trailerShown) {
+        .fullScreenCover(isPresented: $trailerShown) { PerceptionView {
             if let trailer = details?.trailer { DiscoverMobileTrailerScreen(trailer: trailer, title: details?.name ?? item.name) }
-        }
+        } }
         #else
-        .sheet(isPresented: $trailerShown) {
+        .sheet(isPresented: $trailerShown) { PerceptionView {
             if let trailer = details?.trailer { DiscoverTrailerScreen(trailer: trailer, title: item.name).discoverSheetSize(width: 960, height: 600) }
-        }
+        } }
         #endif
-    }
+    } }
 
     @ViewBuilder private var page: some View {
         #if os(tvOS)
         tvPage
         #else
-        GeometryReader { geometry in
+        GeometryReader { geometry in PerceptionView {
             let width = geometry.size.width
             let coverHeight = width < 600 ? width * 1.5 : min(760, width * 0.7)
             ZStack(alignment: .top) {
                 DiscoverDetailBackground(model: model, width: width, height: coverHeight,
                                          active: onScreen && scenePhase == .active && !trailerShown && !searchShown && still == nil && !overviewShown)
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 30) {
+                    LazyVStack(alignment: .leading, spacing: 30) { PerceptionView {
                         identity(width: width)
                         if model.failed {
                             Button(L10n.text("Try Again")) { Task { await model.load(item) } }.padding(.horizontal, 20)
@@ -125,12 +125,12 @@ struct DiscoverDetailView: View {
                             Link(destination: details.link) { Label(L10n.text("View on TMDB"), systemImage: "arrow.up.right.square") }
                                 .font(.footnote).frame(maxWidth: .infinity).padding(.vertical, 15)
                         }
-                    }.padding(.bottom, 40)
+                    } }.padding(.bottom, 40)
                 }
-                .scrollIndicators(.hidden)
+                .compatibleScrollIndicators(.hidden)
                 .modifier(DiscoverDetailScroll(model: model))
             }
-        }
+        } }
         .foregroundStyle(dark ? Color.white : Color.black)
         .environment(\.colorScheme, dark ? .dark : .light)
         .ignoresSafeArea(edges: .top)
@@ -142,7 +142,7 @@ struct DiscoverDetailView: View {
         #endif
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                Button { searchShown = true } label: { Image(systemName: "text.magnifyingglass") }
+                Button { searchShown = true } label: { PerceptionView { Image(systemName: "text.magnifyingglass") } }
                     .accessibilityLabel(L10n.text("Search Catalog"))
                     .accessibilityIdentifier("discover.detail.search")
                 #if !os(tvOS)
@@ -173,18 +173,18 @@ struct DiscoverDetailView: View {
             HStack(spacing: 12) {
                 sourceButton
                 if let trailer = details?.trailer, trailer.site == "IMDb" {
-                    Button { trailerShown = true } label: {
+                    Button { trailerShown = true } label: { PerceptionView {
                         Image(systemName: "play.rectangle").font(.system(size: 21)).frame(width: 54, height: 54)
                             .glassSurface(.regular, in: Circle())
-                    }.buttonStyle(.plain).accessibilityLabel(L10n.text("Trailer"))
+                    } }.buttonStyle(.plain).accessibilityLabel(L10n.text("Trailer"))
                         .accessibilityIdentifier("discover.detail.playTrailer")
                 }
             }
-            Button { overviewShown = true } label: {
+            Button { overviewShown = true } label: { PerceptionView {
                 Text(details?.overview ?? item.overview).font(.system(size: 12)).lineLimit(3)
                     .multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
-            }.buttonStyle(.plain).accessibilityIdentifier("discover.detail.overview")
+            } }.buttonStyle(.plain).accessibilityIdentifier("discover.detail.overview")
             if let rating = details?.rating ?? item.rating {
                 HStack(spacing: 5) {
                     TMDBBadge()
@@ -215,47 +215,47 @@ struct DiscoverDetailView: View {
             episode = nil
             if store.subscription == nil { store.section = .settings }
             else { store.searchVideos(item.name) }
-        } label: {
+        } label: { PerceptionView {
             Label(L10n.text(store.subscription == nil ? "Add Subscription" : "Search Sources"), systemImage: "magnifyingglass")
                 .font(.system(size: 15, weight: .semibold)).frame(maxWidth: .infinity).frame(height: 54)
                 .foregroundStyle(dark ? Color.black : Color.white)
                 .background(dark ? Color.white : Color.black, in: Capsule())
-        }.buttonStyle(.plain).accessibilityIdentifier("discover.findSources")
+        } }.buttonStyle(.plain).accessibilityIdentifier("discover.findSources")
     }
 
     private var episodes: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Menu {
-                ForEach(seasons, id: \.number) { value in
-                    Button { seasonNumber = value.number } label: {
+            Menu { PerceptionView {
+                ForEach(seasons, id: \.number) { value in PerceptionView {
+                    Button { seasonNumber = value.number } label: { PerceptionView {
                         if seasonNumber == value.number { Label(value.name, systemImage: "checkmark") } else { Text(value.name) }
-                    }
-                }
-            } label: {
+                    } }
+                } }
+            } } label: { PerceptionView {
                 HStack(spacing: 10) {
                     Text(seasons.first { $0.number == seasonNumber }?.name ?? L10n.text("Seasons"))
                     Image(systemName: "chevron.down").font(.system(size: 16, weight: .medium))
                 }.font(.system(size: 22, weight: .semibold)).padding(.horizontal, 20)
-            }.buttonStyle(.plain).accessibilityIdentifier("discover.detail.season")
+            } }.buttonStyle(.plain).accessibilityIdentifier("discover.detail.season")
             if loadingSeason { ProgressView().frame(maxWidth: .infinity).frame(height: 120) }
             else if seasonFailed { Button(L10n.text("Try Again")) { Task { await loadSeason() } }.padding(.horizontal, 20) }
             else if let season {
                 DiscoverRail(arrowCenter: 73) {
-                    LazyHStack(alignment: .top, spacing: 13) {
-                        ForEach(season.episodes, id: \.number) { value in
-                            DiscoverButton { episode = DiscoverEpisode(value: value) } label: {
+                    LazyHStack(alignment: .top, spacing: 13) { PerceptionView {
+                        ForEach(season.episodes, id: \.number) { value in PerceptionView {
+                            DiscoverButton { episode = DiscoverEpisode(value: value) } label: { PerceptionView {
                                 VStack(alignment: .leading, spacing: 7) {
                                     PosterImage(url: value.still ?? details?.backdrop).frame(width: 260, height: 146.25)
                                         .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-                                        .overlay(alignment: .bottomTrailing) {
+                                        .overlay(alignment: .bottomTrailing) { PerceptionView {
                                             if let runtime = value.runtime { Text("\(Int(runtime)) " + L10n.text("min")).font(.caption2).padding(5).background(.black.opacity(0.55), in: Capsule()).padding(8).foregroundStyle(.white) }
-                                        }
+                                        } }
                                     Text("\(value.number). \(value.name)").font(.system(size: 14, weight: .semibold)).lineLimit(1)
                                     Text(value.overview).font(.system(size: 12)).lineLimit(2).opacity(0.65)
                                 }.frame(width: 260, alignment: .leading)
-                            }.buttonStyle(.plain).accessibilityIdentifier("discover.detail.episode.\(value.number)")
-                        }
-                    }.padding(.horizontal, 20)
+                            } }.buttonStyle(.plain).accessibilityIdentifier("discover.detail.episode.\(value.number)")
+                        } }
+                    } }.padding(.horizontal, 20)
                 }
             }
         }
@@ -265,14 +265,14 @@ struct DiscoverDetailView: View {
         VStack(alignment: .leading, spacing: 14) {
             heading(title)
             DiscoverRail(arrowCenter: 41.5) {
-                LazyHStack(alignment: .top, spacing: 13) {
-                    ForEach(Array(people.enumerated()), id: \.offset) { _, person in
+                LazyHStack(alignment: .top, spacing: 13) { PerceptionView {
+                    ForEach(Array(people.enumerated()), id: \.offset) { _, person in PerceptionView {
                         if let id = person.id {
-                            RouteLink { DiscoverPersonView(id: id, name: person.name, profile: person.profile) } label: { personCard(person) }
+                            RouteLink { DiscoverPersonView(id: id, name: person.name, profile: person.profile) } label: { PerceptionView { personCard(person) } }
                                 .buttonStyle(.plain).accessibilityIdentifier("discover.detail.person.\(id)")
                         } else { personCard(person) }
-                    }
-                }.padding(.horizontal, 20)
+                    } }
+                } }.padding(.horizontal, 20)
             }
         }
     }
@@ -292,12 +292,12 @@ struct DiscoverDetailView: View {
             heading(L10n.text("Studios & Networks"))
             DiscoverRail {
                 HStack(spacing: 13) {
-                    ForEach(Array(studios.enumerated()), id: \.offset) { _, studio in
+                    ForEach(Array(studios.enumerated()), id: \.offset) { _, studio in PerceptionView {
                         if let id = studio.id {
-                            RouteLink { DiscoverBrowseView(title: studio.name, filter: .studio(id, type: studio.kind == "network" ? .tv : .movie), logo: studio.logo) } label: { studioCard(studio) }
+                            RouteLink { DiscoverBrowseView(title: studio.name, filter: .studio(id, type: studio.kind == "network" ? .tv : .movie), logo: studio.logo) } label: { PerceptionView { studioCard(studio) } }
                                 .buttonStyle(.plain).accessibilityIdentifier("discover.detail.studio.\(id)")
                         } else { studioCard(studio) }
-                    }
+                    } }
                 }.padding(.horizontal, 20)
             }
         }
@@ -318,12 +318,12 @@ struct DiscoverDetailView: View {
             DiscoverRail {
                 HStack(spacing: 10) {
                     if let genres = details.genreItems, !genres.isEmpty {
-                        ForEach(genres) { genre in
-                            RouteLink { DiscoverBrowseView(title: genre.name, filter: .genre(genre.id, type: item.mediaType)) } label: { genreChip(genre.name) }
+                        ForEach(genres) { genre in PerceptionView {
+                            RouteLink { DiscoverBrowseView(title: genre.name, filter: .genre(genre.id, type: item.mediaType)) } label: { PerceptionView { genreChip(genre.name) } }
                                 .buttonStyle(.plain).accessibilityIdentifier("discover.detail.genre.\(genre.id)")
-                        }
+                        } }
                     } else {
-                        ForEach(details.genres, id: \.self) { genreChip($0) }
+                        ForEach(details.genres, id: \.self) { trackedValue0 in PerceptionView { genreChip(trackedValue0) } }
                     }
                 }.padding(.horizontal, 20)
             }
@@ -338,13 +338,13 @@ struct DiscoverDetailView: View {
         VStack(alignment: .leading, spacing: 14) {
             heading(L10n.text("Stills"))
             DiscoverRail(arrowCenter: 73) {
-                LazyHStack(spacing: 13) {
-                    ForEach(images, id: \.self) { url in
-                        DiscoverButton { still = DiscoverStill(url: url) } label: {
+                LazyHStack(spacing: 13) { PerceptionView {
+                    ForEach(images, id: \.self) { url in PerceptionView {
+                        DiscoverButton { still = DiscoverStill(url: url) } label: { PerceptionView {
                             PosterImage(url: url).frame(width: 260, height: 146.25).clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-                        }.buttonStyle(.plain).accessibilityIdentifier("discover.detail.still")
-                    }
-                }.padding(.horizontal, 20)
+                        } }.buttonStyle(.plain).accessibilityIdentifier("discover.detail.still")
+                    } }
+                } }.padding(.horizontal, 20)
             }
         }
     }
@@ -352,24 +352,24 @@ struct DiscoverDetailView: View {
     private var trailerCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             heading(L10n.text("Trailer"))
-            Button { trailerShown = true } label: {
+            Button { trailerShown = true } label: { PerceptionView {
                 PosterImage(url: details?.backdrop ?? item.backdrop).frame(height: 210)
-                    .overlay { Image(systemName: "play.fill").font(.system(size: 28)).frame(width: 64, height: 64).glassSurface(.regular, in: Circle()) }
+                    .overlay { PerceptionView { Image(systemName: "play.fill").font(.system(size: 28)).frame(width: 64, height: 64).glassSurface(.regular, in: Circle()) } }
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            }.buttonStyle(.plain).padding(.horizontal, 20).accessibilityIdentifier("discover.detail.trailer")
+            } }.buttonStyle(.plain).padding(.horizontal, 20).accessibilityIdentifier("discover.detail.trailer")
         }
     }
 
     private func facts(_ details: TMDBMatch.Details) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             heading(L10n.text("Information"))
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 18) {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 18) { PerceptionView {
                 fact(L10n.text("Original Title"), details.originalName)
                 fact(L10n.text("Release Date"), details.date ?? "—")
                 fact(L10n.text("Country / Region"), countries(details))
                 fact(L10n.text("Status"), details.status.map { L10n.text($0) } ?? "—")
                 if !details.crew.isEmpty { fact(L10n.text("Crew"), details.crew.map(\.name).joined(separator: " / ")) }
-            }.padding(18).background(.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 20)).padding(.horizontal, 20)
+            } }.padding(18).background(.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 20)).padding(.horizontal, 20)
         }
     }
     private func fact(_ title: String, _ value: String) -> some View {
@@ -382,11 +382,11 @@ struct DiscoverDetailView: View {
         VStack(alignment: .leading, spacing: 14) {
             heading(L10n.text("You May Like"))
             DiscoverRail(arrowCenter: 87) {
-                LazyHStack(alignment: .top, spacing: 13) {
-                    ForEach(items, id: \.key) { candidate in
-                        RouteLink { DiscoverDetailView(item: candidate.catalogItem) } label: { DiscoverTile(item: candidate.catalogItem).frame(width: 116) }.tmdbCardButton()
-                    }
-                }.padding(.horizontal, 20)
+                LazyHStack(alignment: .top, spacing: 13) { PerceptionView {
+                    ForEach(items, id: \.key) { candidate in PerceptionView {
+                        RouteLink { DiscoverDetailView(item: candidate.catalogItem) } label: { PerceptionView { DiscoverTile(item: candidate.catalogItem).frame(width: 116) } }.tmdbCardButton()
+                    } }
+                } }.padding(.horizontal, 20)
             }
         }
     }
@@ -431,18 +431,18 @@ private struct DiscoverDetailBackground: View {
     let width: CGFloat
     let height: CGFloat
     let active: Bool
-    var body: some View {
+    var body: some View { PerceptionView {
         DiscoverBackdrop(paint: model.paint, width: width, heroHeight: height, scrollY: model.scrollY,
                          trailer: model.details?.trailer, playsTrailer: active && model.scrollY < height * 0.35)
-    }
+    } }
 }
 private struct DiscoverDetailScroll: ViewModifier {
     let model: DiscoverDetailModel
-    @ViewBuilder func body(content: Content) -> some View {
+    @ViewBuilder func body(content: Content) -> some View { PerceptionView {
         if #available(iOS 18, macOS 15, tvOS 18, *) {
             content.onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { _, value in model.scrollY = value }
         } else { content }
-    }
+    } }
 }
 private struct DiscoverStill: Identifiable { let url: URL; var id: URL { url } }
 private struct DiscoverEpisode: Identifiable { let value: TMDBMatch.EpisodeInfo; var id: Int { value.number } }
@@ -506,16 +506,16 @@ struct DiscoverSearchPresentation: ViewModifier {
     @Binding var isPresented: Bool
     @Environment(\.openRoute) private var openRoute
     @Environment(Store.self) private var store
-    func body(content: Content) -> some View {
+    func body(content: Content) -> some View { PerceptionView {
         #if os(iOS)
-        content.fullScreenCover(isPresented: $isPresented) { DiscoverSearchView() }
+        content.fullScreenCover(isPresented: $isPresented) { PerceptionView { DiscoverSearchView() } }
             // Search Sources on a detail page opened from here switches to the Search tab, which is behind this
             // full-screen sheet: close it so the source results show instead of the catalog search.
-            .onChange(of: store.section) { if isPresented { isPresented = false } }
+            .onValueChange(of: store.section) { if isPresented { isPresented = false } }
         #else
         // A page of its own (Back returns), rather than the iPhone's full-screen sheet: on the Mac with the toolbar's
         // search field, on the TV laid out for the remote.
-        content.onChange(of: isPresented) { _, shown in
+        content.onValueChange(of: isPresented) { _, shown in
             guard shown else { return }
             isPresented = false
             #if os(macOS)
@@ -525,7 +525,7 @@ struct DiscoverSearchPresentation: ViewModifier {
             #endif
         }
         #endif
-    }
+    } }
 }
 
 extension View {

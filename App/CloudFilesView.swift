@@ -89,12 +89,12 @@ struct CloudFolderView: View {
     @State private var asksPassword = false
     @State private var password = ""
 
-    var body: some View {
+    var body: some View { PerceptionView {
         Group {
             if let files, !files.isEmpty {
                 FilesList {
                     FilesSection(title: nil, footer: nil) {
-                        ForEach(files) { row($0, in: files) }
+                        ForEach(files) { trackedValue0 in PerceptionView { row(trackedValue0, in: files) } }
                     }
                 }
                 #if os(iOS)
@@ -113,7 +113,7 @@ struct CloudFolderView: View {
                 FilesMessage(symbol: "exclamationmark.triangle", title: L10n.text("Couldn't Open This Folder"), message: failure.localizedDescription) {
                     Button(L10n.text("Retry")) { Task { await load() } }.controlButton(prominent: true)
                     if case CloudFilesError.signInRequired = failure, !drive.isAList {
-                        RouteLink { CloudDriveView() } label: { Text(L10n.text("Cloud Drive Accounts")) }.controlButton()
+                        RouteLink { CloudDriveView() } label: { PerceptionView { Text(L10n.text("Cloud Drive Accounts")) } }.controlButton()
                     }
                 }
             } else {
@@ -134,7 +134,7 @@ struct CloudFolderView: View {
             Button(L10n.text("Cancel"), role: .cancel) {}
             Button(L10n.text("Open")) { Task { await load(password: password) } }
         } message: { Text(L10n.text("Enter the password for %@.", name)) }
-    }
+    } }
 
     @ViewBuilder private func row(_ file: CloudFile, in files: [CloudFile]) -> some View {
         let label = FileRowLabel(symbol: file.symbol, tint: file.tint, title: file.name, subtitle: subtitle(file), chevron: file.isFolder, artwork: file.artwork)
@@ -142,21 +142,21 @@ struct CloudFolderView: View {
             FolderLink(drive: drive, folder: file.id, name: file.name) { label }
         } else if drive.plays(file) {
             let item = FavoriteItem.cloud(FavoriteCloudFile(driveKey: drive.key, folderID: folder, folderName: name, fileID: file.id, fileName: file.name, size: file.size))
-            Button { play(file, in: files) } label: {
+            Button { play(file, in: files) } label: { PerceptionView {
                 HStack(spacing: 8) {
                     label
                     if store.favorites.contains(item) {
                         Image(systemName: "heart.fill").foregroundStyle(Brand.rose).fixedSize().accessibilityHidden(true)
                     }
                 }
-            }
+            } }
             .glassRow()
-            .contextMenu { FavoriteMenuButton(item: item, name: file.name) }
+            .contextMenu { PerceptionView { FavoriteMenuButton(item: item, name: file.name) } }
             .accessibilityIdentifier("files.play." + file.name)
         } else {
             // Focusable on Apple TV all the same, or the remote couldn't scroll past these rows.
             #if os(tvOS)
-            Button {} label: { label.opacity(0.55) }.glassRow()
+            Button {} label: {  label.opacity(0.55)  }.glassRow()
             #else
             label.opacity(0.55)
             #endif
@@ -336,7 +336,7 @@ private struct FilesList<Content: View>: View {
         #elseif os(iOS)
         List { content.listRowBackground(SettingsStyle.rowFill) }
             .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
+            .compatibleScrollBackground(.hidden)
         #else
         List { content }.listStyle(.inset(alternatesRowBackgrounds: false))
         #endif

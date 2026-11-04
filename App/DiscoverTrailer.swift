@@ -128,15 +128,15 @@ struct DiscoverTrailer: View {
     let trailer: TMDBMatch.Trailer
     var readyChanged: (Bool) -> Void = { _ in }
     @State private var playback = DiscoverTrailerPlayback()
-    var body: some View {
+    var body: some View { PerceptionView {
         DiscoverTrailerLayer(player: playback.player)
             .opacity(playback.ready ? 1 : 0)
             .animation(.easeOut(duration: 0.4), value: playback.ready)
             .accessibilityHidden(true)
-            .onChange(of: playback.ready) { _, ready in readyChanged(ready) }
+            .onValueChange(of: playback.ready) { _, ready in readyChanged(ready) }
             .task(id: trailer) { await playback.load(trailer) }
             .onDisappear { playback.stop() }
-    }
+    } }
 }
 
 #if os(macOS)

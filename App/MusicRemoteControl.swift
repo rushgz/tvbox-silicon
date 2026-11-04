@@ -1,4 +1,5 @@
 #if os(iOS)
+import Perception
 import MediaPlayer
 import TVCore
 import UIKit
@@ -46,7 +47,7 @@ extension Store {
     }
 
     private func observe() {
-        withObservationTracking { _ = state } onChange: { [weak self] in
+        withPerceptionTracking { _ = state } onChange: { [weak self] in
             Task { @MainActor [weak self] in self?.update(); self?.observe() }
         }
     }

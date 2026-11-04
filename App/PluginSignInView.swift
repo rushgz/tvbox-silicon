@@ -27,7 +27,7 @@ struct PluginSignInView: View {
     }
     private var expired: Bool { now >= prompt.expires }
 
-    var body: some View {
+    var body: some View { PerceptionView {
         content
         #if os(macOS)
         .frame(minWidth: 640, minHeight: 360)
@@ -36,11 +36,11 @@ struct PluginSignInView: View {
         .screenBackdrop()
         #endif
         #if os(iOS)
-        .sheet(isPresented: $signingIn) {
+        .sheet(isPresented: $signingIn) { PerceptionView {
             if let service = WebSignIn(rawValue: prompt.drive) {
                 WebSignInView(service: service) { PluginSignIn.shared.signedInHere(prompt) }
             }
-        }
+        } }
         #endif
         .task {
             while !Task.isCancelled && !expired {
@@ -48,7 +48,7 @@ struct PluginSignInView: View {
                 now = Date()
             }
         }
-    }
+    } }
 
     #if os(iOS)
     private var content: some View {
