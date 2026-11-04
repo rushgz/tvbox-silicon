@@ -87,7 +87,8 @@ struct DiscoverDetailView: View {
         #elseif os(iOS)
         // The movie player, full screen: SwiftUI's VideoPlayer in a sheet had no full screen, Fill or speed (#300).
         .fullScreenCover(isPresented: $trailerShown) { PerceptionView {
-            if let trailer = details?.trailer { DiscoverMobileTrailerScreen(trailer: trailer, title: details?.name ?? item.name) }
+            // Store handed in, as for every full-screen cover: the iPad app on a Mac leaves environment objects behind.
+            if let trailer = details?.trailer { DiscoverMobileTrailerScreen(trailer: trailer, title: details?.name ?? item.name).environment(store) }
         } }
         #else
         .sheet(isPresented: $trailerShown) { PerceptionView {
@@ -508,7 +509,8 @@ struct DiscoverSearchPresentation: ViewModifier {
     @Environment(Store.self) private var store
     func body(content: Content) -> some View { PerceptionView {
         #if os(iOS)
-        content.fullScreenCover(isPresented: $isPresented) { PerceptionView { DiscoverSearchView() } }
+        // Store handed in: the iPad app on a Mac presents a full-screen cover without the presenter's environment objects.
+        content.fullScreenCover(isPresented: $isPresented) { PerceptionView { DiscoverSearchView().environment(store) } }
             // Search Sources on a detail page opened from here switches to the Search tab, which is behind this
             // full-screen sheet: close it so the source results show instead of the catalog search.
             .onValueChange(of: store.section) { if isPresented { isPresented = false } }
@@ -891,7 +893,7 @@ private struct DiscoverTVStarLabel: LabelStyle {
 }
 
 /// The detail page's actions: Liquid Glass plates that turn white under focus.
-private struct DiscoverTVActionStyle: ButtonStyle {
+struct DiscoverTVActionStyle: ButtonStyle {
     let height: CGFloat
     let font: CGFloat
     var corner: CGFloat?

@@ -379,6 +379,8 @@
 "Try another keyword." = "別のキーワードを試してください。";
 "Show Details" = "詳細を表示";
 "Hide Details" = "詳細を隠す";
+"Show as List" = "リスト表示";
+"Show as Grid" = "グリッド表示";
 "%lld of %lld sources responded" = "%lld / %lld ソースが応答";
 "First-time setup can take a few minutes. Keep the app open." = "初回の準備には数分かかることがあります。アプリを開いたままにしてください。";
 "This source requires Android features that the plugin runtime does not support yet." = "この配信ソースは、プラグイン実行環境で未対応のAndroid機能を必要とします。";
@@ -527,6 +529,7 @@
 "Storage" = "ストレージ";
 "%@ free" = "空き %@";
 "used by downloads" = "ダウンロードで使用中";
+"%@ used by downloads" = "ダウンロードで %@ 使用中";
 "Other" = "その他";
 "Free" = "空き";
 "tvOS may remove downloads when Apple TV runs low on storage." = "Apple TV の空き容量が少なくなると、tvOS がダウンロードを削除することがあります。";
@@ -616,6 +619,13 @@
 "Manage Sources" = "配信ソースを管理";
 "Hidden Sources" = "隠したソース";
 "Hidden" = "非表示";
+"Hide or Show Sources" = "ソースの表示と非表示";
+"%lld hidden" = "%lld 件非表示";
+"Choose many sources at once, or a whole subscription." = "複数のソースや配信設定全体をまとめて選べます。";
+"Ticked sources are shown. Hidden sources stay out of Watch Now and search." = "チェックしたソースが表示されます。非表示のソースは「今すぐ観る」と検索に表示されません。";
+"Show All Sources" = "すべてのソースを表示";
+"Show All" = "すべて表示";
+"Hide All" = "すべて隠す";
 "Pinned Sources" = "固定したソース";
 "Search history" = "視聴履歴を検索";
 "Manage history" = "履歴を管理";
@@ -838,6 +848,7 @@
 "Choose your tabs and their order." = "表示するタブとその順番を選べます。";
 "Drag to reorder. Up to four sections fit in the tab bar; the rest stay in More." = "ドラッグして並べ替えます。タブバーには4つまで置けて、残りは「その他」に入ります。";
 "Drag to reorder. Up to seven sections fit in the tab bar here, and four when the phone is closed; the rest stay in More." = "ドラッグして並べ替えます。ここではタブバーに7つまで、閉じたときは4つまで置けて、残りは「その他」に入ります。";
+"Drag to reorder. The tab bar and the sidebar show sections in this order." = "ドラッグして並べ替えます。タブバーとサイドバーはこの順番で表示されます。";
 "Add" = "追加";
 "Paste the address of a TVBox JSON subscription, an M3U or TXT live playlist, or an AList server." = "TVBox JSON 配信設定、M3U / TXT ライブ再生リスト、または AList サーバのアドレスを貼り付けます。";
 "Up to Date" = "最新";
@@ -1034,6 +1045,7 @@
 "Touch and Hold Speed" = "長押しの再生速度";
 "Touch and hold the video to play at this speed. Slide sideways to change it, or slide down to keep it after you let go." = "動画を長押しするとこの速度で再生します。押したまま左右にスライドすると速度を変更、下にスライドすると指を離しても維持します。";
 "Slide sideways to change the speed, or down to keep it" = "左右にスライドで速度を変更、下にスライドで固定";
+"Slowed down to keep up with the connection" = "通信速度に合わせて速度を下げています";
 "Back to Normal Speed" = "通常の速度に戻す";
 "%lld s" = "%lld 秒";
 "Brightness" = "明るさ";
@@ -1381,3 +1393,29 @@
 "None of your LX Music sources plays this song's catalog." = "追加した LX Music の音源はどれもこの曲のカタログに対応していません。";
 "This extension asks an LX Music source for something Yingxia doesn't support." = "この拡張機能が LX Music の音源に求める内容には、映匣はまだ対応していません。";
 "Scripts in the Listenify music extension format. Their charts and playlists show on the Music page and their songs in Music search; songs play from what the extension gives, or through your LX Music sources when it asks for one. Yingxia includes none: add only extensions you trust." = "Listenify 形式の音楽拡張機能スクリプトです。チャートとプレイリストはミュージックページに、曲はミュージック検索に表示されます。曲は拡張機能が示すアドレスから、または必要なとき LX Music の音源を通して再生されます。映匣には拡張機能は含まれていません。信頼できるものだけを追加してください。";
+"Douban Hot Lists" = "Douban 人気リスト";
+"Douban Hot Movies" = "Douban 人気映画";
+"Douban Hot Series" = "Douban 人気ドラマ";
+"Douban Hot Variety Shows" = "Douban 人気バラエティ";
+"Douban" = "Douban";
+
+"%@ (Translated from %@)" = "%@（%@から翻訳）";
+
+"Airing Schedule" = "放送スケジュール";
+"Anime" = "アニメ";
+"Nothing Airing" = "この日の放送はありません";
+"Couldn't load the airing schedule." = "放送スケジュールを読み込めませんでした。";
+"Data:" = "データ提供：";
+"The schedule sources can't be reached right now, so this is an older copy." = "スケジュールの提供元に接続できないため、以前のデータを表示しています。";
+"Full Schedule" = "すべてのスケジュール";
+"Chinese Series" = "中国ドラマ";
+"Hong Kong & Taiwan Series" = "香港・台湾ドラマ";
+"American Series" = "アメリカのドラマ";
+"Japanese Series" = "日本のドラマ";
+"Korean Series" = "韓国ドラマ";
+"British Series" = "イギリスのドラマ";
+"Today" = "今日";
+"Airs Next" = "まもなく放送";
+"Anime Airing Today" = "今日のアニメ";
+"Series Airing Today" = "今日のドラマ";
+"Day" = "曜日";

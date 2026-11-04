@@ -25,7 +25,38 @@ private func source(_ key: String) -> Site {
     #expect(hidden.contains(site, origin: origin))
 }
 
+@Test @MainActor func manySourcesHideAndShowInOneChange() throws {
+    let suite = "hidden.many." + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let hidden = HiddenSources(defaults: defaults)
+    var changes = 0
+    hidden.onChange = { changes += 1 }
+    let a = source("a"), b = source("b"), c = source("c")
+    hidden.insert(a, origin: origin)
+    hidden.setHidden([a, b, c], origin: origin, hidden: true)
+    #expect([a, b, c].allSatisfy { hidden.contains($0, origin: origin) })
+    #expect(hidden.savedKeys.count == 3)
+    #expect(changes == 2)
+    #expect(HiddenSources(defaults: defaults).contains(c, origin: origin))
+    // Nothing to change: no save, no sync.
+    let revision = hidden.revision
+    hidden.setHidden([b, c], origin: origin, hidden: true)
+    #expect(hidden.revision == revision && changes == 2)
+    hidden.setHidden([a, c], origin: origin, hidden: false)
+    #expect(!hidden.contains(a, origin: origin) && hidden.contains(b, origin: origin) && !hidden.contains(c, origin: origin))
+    #expect(changes == 3)
+    // Another subscription's copy of a source keeps its own state.
+    let other = URL(string: "https://other.example/a.json")!
+    hidden.setHidden([b], origin: other, hidden: false)
+    #expect(hidden.contains(b, origin: origin))
+}
+
 private struct Failure: Error {}
+
+/// Sources like those of Yingxia's own subscription.
+private let hongguo = Site(key: "builtin.hongguo", name: "Hongguo", type: 3, api: "https://example.com/hongguo.js", raw: ["yingxia": .object(["builtin": .bool(true)])])
+private let builtIns = [Site(key: "builtin.bilibili", name: "Bilibili", type: 3, api: "https://example.com/bili.js", raw: ["yingxia": .object(["builtin": .bool(true)])]), hongguo]
 
 @Test @MainActor func failingSourcesGoRedWithoutBeingHidden() throws {
     let suite = "hidden.red." + UUID().uuidString
@@ -34,13 +65,13 @@ private struct Failure: Error {}
     let hidden = HiddenSources(defaults: defaults)
     let health = SourceHealth(file: nil)
     let now = Date()
-    for site in [source("a")] + Site.builtInSites {
+    for site in [source("a")] + builtIns {
         health.record(site, origin: origin, seconds: 1, error: Failure(), now: now)
         health.record(site, origin: origin, seconds: 1, error: Failure(), now: now)
         #expect(health.status(site, origin: origin, now: now) == .failing)
         #expect(!hidden.contains(site, origin: origin))
     }
-    hidden.restoreAutoHidden([source("a")] + Site.builtInSites, origin: origin, health: health)
+    hidden.restoreAutoHidden([source("a")] + builtIns, origin: origin, health: health)
     #expect(!hidden.contains(source("a"), origin: origin))
 }
 
@@ -81,16 +112,16 @@ private struct Failure: Error {}
     defer { defaults.removePersistentDomain(forName: suite) }
     let hidden = HiddenSources(defaults: defaults)
     let site = source("a")
-    hidden.insert(.hongguo, origin: origin)
+    hidden.insert(hongguo, origin: origin)
     hidden.insert(site, origin: origin)
     hidden.restoreBuiltIns([], origin: origin)
-    #expect(hidden.contains(.hongguo, origin: origin))
-    let sites = [site] + Site.builtInSites
+    #expect(hidden.contains(hongguo, origin: origin))
+    let sites = [site] + builtIns
     hidden.restoreBuiltIns(sites, origin: origin)
-    #expect(!hidden.contains(.hongguo, origin: origin))
+    #expect(!hidden.contains(hongguo, origin: origin))
     #expect(hidden.contains(site, origin: origin))
-    #expect(!HiddenSources(defaults: defaults).contains(.hongguo, origin: origin))
-    hidden.toggle(.hongguo, origin: origin)
+    #expect(!HiddenSources(defaults: defaults).contains(hongguo, origin: origin))
+    hidden.toggle(hongguo, origin: origin)
     hidden.restoreBuiltIns(sites, origin: origin)
-    #expect(hidden.contains(.hongguo, origin: origin))
+    #expect(hidden.contains(hongguo, origin: origin))
 }

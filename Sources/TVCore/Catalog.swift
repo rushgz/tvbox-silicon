@@ -3,6 +3,58 @@ import Foundation
 public struct Category: Identifiable, Sendable {
     public let id: String
     public let name: String
+    /// The source's filters for this category (TVBox `filters`), such as 类型, 地区 or 年份, in its order.
+    public let filters: [CategoryFilter]
+    public init(id: String, name: String, filters: [CategoryFilter] = []) {
+        self.id = id; self.name = name; self.filters = filters
+    }
+}
+
+/// One of a category's filters: a group of values (TVBox `{key, name, init, value: [{n, v}]}`) of which the chosen one
+/// goes to the source's category request in `extend`, under `key`.
+public struct CategoryFilter: Identifiable, Hashable, Sendable {
+    public struct Option: Hashable, Sendable {
+        public let name: String
+        public let value: String
+    }
+    public let key: String
+    public let name: String
+    public let options: [Option]
+    /// The value chosen before the viewer picks one: the source's `init`, else its first option's.
+    public let initial: String
+    public var id: String { key }
+
+    public init(key: String, name: String, options: [Option], initial: String? = nil) {
+        self.key = key; self.name = name; self.options = options
+        self.initial = initial ?? options.first?.value ?? ""
+    }
+
+    init?(json: [String: JSONValue]) {
+        guard let key = json["key"]?.string, !key.isEmpty else { return nil }
+        var seen = Set<String>()
+        let options = (json["value"]?.array ?? []).compactMap { entry -> Option? in
+            guard let fields = entry.object, let value = fields["v"]?.string ?? fields["value"]?.string else { return nil }
+            let name = (fields["n"]?.string ?? fields["name"]?.string).map(HTMLText.name) ?? value
+            return seen.insert(value).inserted ? Option(name: name.isEmpty ? value : name, value: value) : nil
+        }
+        guard options.count > 1 else { return nil }
+        self.init(key: key, name: json["name"]?.string.map(HTMLText.name) ?? key, options: options, initial: json["init"]?.string)
+    }
+
+    /// A home answer's `filters`: an object of category id to filter list, sometimes sent as JSON text.
+    static func all(_ value: JSONValue?) -> [String: [CategoryFilter]] {
+        var value = value
+        if let text = value?.string, let data = text.data(using: .utf8) { value = try? JSONDecoder().decode(JSONValue.self, from: data) }
+        return (value?.object ?? [:]).compactMapValues { list in
+            let filters = (list.array ?? []).compactMap { $0.object.flatMap(CategoryFilter.init(json:)) }
+            return filters.isEmpty ? nil : filters
+        }
+    }
+
+    /// The choices a category opens with: each filter's initial value, as other TVBox clients send them.
+    public static func initialChoices(_ filters: [CategoryFilter]) -> [String: String] {
+        Dictionary(filters.map { ($0.key, $0.initial) }, uniquingKeysWith: { first, _ in first })
+    }
 }
 public struct Episode: Identifiable, Hashable, Sendable, Codable {
     public let id: String
@@ -126,9 +178,10 @@ public struct CatalogPage: Sendable {
     public let videos: [Video]
     public let pageCount: Int
     public init(json: [String: JSONValue], origin: URL) {
+        let filters = CategoryFilter.all(json["filters"])
         categories = (json["class"]?.array ?? []).compactMap {
             guard let v = $0.object, let id = v["type_id"]?.string else { return nil }
-            return Category(id: id, name: v["type_name"]?.string.map(HTMLText.name) ?? id)
+            return Category(id: id, name: v["type_name"]?.string.map(HTMLText.name) ?? id, filters: filters[id] ?? [])
         }
         videos = (json["list"]?.array ?? []).compactMap { $0.object.flatMap { Video(json: $0, origin: origin) } }
         pageCount = max(1, json["pagecount"]?.int ?? 1)
@@ -175,6 +228,11 @@ public struct CatalogClient: Sendable {
             else if let data = try? JSONEncoder().encode(ext) { values["extend"] = String(data: data, encoding: .utf8) }
         }
         parts.queryItems = (parts.queryItems ?? []).filter { values[$0.name] == nil } + values.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) }
+        // A query item keeps `+`, which servers read as a space: escape it in the filters (base64 has `+`).
+        parts.percentEncodedQueryItems = parts.percentEncodedQueryItems?.map { item in
+            params[item.name] == nil || !["ext", "f"].contains(item.name) ? item
+                : URLQueryItem(name: item.name, value: item.value?.replacingOccurrences(of: "+", with: "%2B"))
+        }
         guard let url = parts.url else { throw TVError.invalidURL }
         return url
     }
@@ -194,6 +252,10 @@ public struct CatalogClient: Sendable {
     }
     private func perform(_ params: [String: String]) async throws -> [String: JSONValue] {
         if site.isCloudFiles { return try await CloudFilesSource.request(site, params: params) }
+        // Yingxia's own sources run in-process on every platform, the Mac's included.
+        if site.runsInProcess {
+            return try await ScriptRuntime.shared.request(site: site, scriptURL: site.scriptURL(origin: origin), params: params, http: http, origin: origin)
+        }
         // A bundled lite port runs first, in-process on QuickJS everywhere; when it fails or answers
         // with nothing usable, the source's JAR spider answers instead.
         if let script = site.liteScript, ScriptRuntime.available, await LiteFallback.shared.prefersPort(site.key) {
@@ -288,11 +350,29 @@ public struct CatalogClient: Sendable {
         }.filter { seen.insert($0.id).inserted }
         return (items, CatalogPage(json: json, origin: origin).categories)
     }
-    public func list(category: String?, query: String, page: Int) async throws -> CatalogPage {
+    /// A search (`query`) or one page of a category, narrowed by the category's filter `choices` (key to value).
+    public func list(category: String?, query: String, page: Int, filters choices: [String: String] = [:]) async throws -> CatalogPage {
         var params = ["pg": String(page)]
         if !query.isEmpty { params["wd"] = query; params["quick"] = "false" }
-        else { params["ac"] = "detail"; params["t"] = category }
+        else {
+            params["ac"] = "detail"; params["t"] = category
+            params.merge(Self.filterParameters(choices, siteType: site.type)) { _, new in new }
+        }
         return CatalogPage(json: try await request(params), origin: origin)
+    }
+
+    /// A category's filter choices as the source reads them, leaving out empty ("全部") values: as other TVBox clients
+    /// send them, base64 JSON in `ext` for an HTTP spider (type 4) and JSON in `f` for a CMS API; a plugin host gets the
+    /// JSON in `filters` and hands the spider its `extend` map.
+    static func filterParameters(_ choices: [String: String], siteType: Int) -> [String: String] {
+        let extend = choices.filter { !$0.value.isEmpty }
+        guard !extend.isEmpty, let data = try? JSONSerialization.data(withJSONObject: extend, options: [.sortedKeys, .withoutEscapingSlashes])
+        else { return [:] }
+        switch siteType {
+        case 4: return ["ext": data.base64EncodedString()]
+        case 0, 1: return ["f": String(decoding: data, as: UTF8.self)]
+        default: return ["filters": String(decoding: data, as: UTF8.self)]
+        }
     }
     public func detail(_ id: String, cached: Bool = false) async throws -> Video {
         let scope = EpisodeSkipSettings.scope(origin: origin, source: site.sourceKey, video: id)
@@ -341,10 +421,26 @@ public struct CatalogClient: Sendable {
             }
             var choices = PlaybackChoice.parse(result["url"], prefix: prefix, fallbackName: episode.name)
             guard !choices.isEmpty else { throw TVError.unsupported(L10n.text("The API did not return a single playback URL.")) }
-            if site.key == Hongguo.siteKey, let key = result["hongguoKey"]?.string, !key.isEmpty {
+            let duration = result["duration"]?.double.flatMap { $0 > 0 ? $0 : nil }
+            let danmaku = result["danmaku"]?.string
+            // Separate video and audio files (DASH), which the app describes as HLS for the player.
+            if let dash = result["dash"]?.object {
+                do {
+                    guard let master = try await DashStreams.stream(dash, headers: headers, danmaku: danmaku, session: http.session) else {
+                        throw TVError.unsupported(L10n.text("The API did not return a single playback URL."))
+                    }
+                    return PlaybackPlan(choices: [PlaybackChoice(id: 0, name: episode.name, address: master.absoluteString)], headers: headers,
+                                        group: episode.flag, requiresWebDetection: false, subtitles: ExternalSubtitle.parse(result["subs"]))
+                } catch {
+                    if error is CancellationError || Task.isCancelled { throw CancellationError() }
+                    throw error
+                }
+            }
+            // An encrypted MP4 with its key, which the app decrypts as it plays.
+            if let key = result["decryptKey"]?.string, !key.isEmpty {
                 do {
                     let remote = try WebAddress.resolve(choices[0].address)
-                    let backups = (result["hongguoBackups"]?.array ?? []).compactMap { $0.string.flatMap { try? WebAddress.resolve($0) } }
+                    let backups = (result["backupUrls"]?.array ?? []).compactMap { $0.string.flatMap { try? WebAddress.resolve($0) } }
                     let address: URL
                     if forDownload {
                         address = try await HongguoMedia.shared.prepare(url: remote, backups: backups, key: key, headers: headers, http: http)
@@ -357,6 +453,8 @@ public struct CatalogClient: Sendable {
                     if error is CancellationError || Task.isCancelled { throw CancellationError() }
                     throw TVError.unsupported(L10n.text("This Hongguo video could not be prepared for playback. Please try again."))
                 }
+            } else if danmaku != nil, let url = try? WebAddress.resolve(choices[0].address) {
+                DanmakuSource.register(url, feed: danmaku, duration: duration)
             }
             return PlaybackPlan(choices: choices, headers: headers, group: episode.flag,
                                 requiresWebDetection: (result["parse"]?.int ?? 0) != 0 || (result["jx"]?.int ?? 0) != 0 || !prefix.isEmpty, click: click, webPlayURL: "",
@@ -384,8 +482,9 @@ public struct CatalogClient: Sendable {
     /// Neither exists on Apple TV, which throws the existing web-detection error.
     /// This does not call a spider `isVideoFormat`.
     public func resolvePlayback(_ plan: PlaybackPlan, choice: PlaybackChoice) async throws -> Channel {
-        if site.key == Hongguo.siteKey, let url = URL(string: choice.address), url.scheme == HongguoStreams.scheme {
-            return Channel(name: choice.name, group: plan.group, url: url, headers: [:])
+        // Addresses the app made itself from the play result: a keyed MP4 or DASH described as HLS.
+        if let url = URL(string: choice.address), url.scheme == HongguoStreams.scheme || url.scheme == DashStreams.scheme {
+            return Channel(name: choice.name, group: plan.group, url: url, headers: url.scheme == DashStreams.scheme ? plan.headers : [:])
         }
         // A drive in Cloud Files hands over its stream, which carries the CDN's headers itself.
         if site.isCloudFiles, let url = URL(string: choice.address), url.scheme == CloudStreams.scheme {
@@ -437,12 +536,25 @@ public struct CatalogClient: Sendable {
         let address = Self.unwrapPluginProxy(choice.address)
         if address.lowercased().hasPrefix("magnet:") { throw TVError.unsupported(L10n.text("This source returned a magnet link. Torrent playback is not supported.")) }
         if Self.isPluginProxy(address) {
-            if let result = try await BilibiliPlayback.resolve(address, headers: plan.headers, http: http) {
-                return Channel(name: choice.name, group: plan.group, url: result.url, headers: result.headers)
+            // A Bili JAR spider's proxy id: Yingxia's own Bilibili source plays the same video.
+            if let id = Self.bilibiliProxyID(address), let bilibili = CloudSources.site(where: \.isBilibili) {
+                let channel = try await CatalogClient(site: bilibili, origin: CloudSources.address, http: http)
+                    .playback(Episode(id: id, name: choice.name, address: id, flag: plan.group))
+                return Channel(name: choice.name, group: plan.group, url: channel.url, headers: channel.headers, subtitles: channel.subtitles)
             }
             throw TVError.unsupported(L10n.text("This source needs a playback proxy that is not supported yet."))
         }
         return Channel(name: choice.name, group: plan.group, url: try WebAddress.resolve(address), headers: plan.headers, subtitles: plan.subtitles)
+    }
+
+    /// `aid_cid[_ep]` from a Bili spider's proxy address (`…/proxy?do=bili&aid=…&cid=…&ep=…`).
+    static func bilibiliProxyID(_ address: String) -> String? {
+        guard isPluginProxy(address), let marker = address.range(of: "/proxy?") else { return nil }
+        var proxy = URLComponents(); proxy.percentEncodedQuery = String(address[marker.upperBound...])
+        let items = proxy.queryItems ?? []
+        func parameter(_ name: String) -> String? { items.first(where: { $0.name == name })?.value.flatMap { UInt64($0) != nil ? $0 : nil } }
+        guard items.first(where: { $0.name == "do" })?.value == "bili", let aid = parameter("aid"), let cid = parameter("cid") else { return nil }
+        return [aid, cid, parameter("ep")].compactMap { $0 }.joined(separator: "_")
     }
 
     private func sniff(_ plan: PlaybackPlan, choice: PlaybackChoice, target: String, headers: [String: String], click: String) async throws -> Channel {

@@ -379,6 +379,8 @@
 "Try another keyword." = "請更換關鍵字。";
 "Show Details" = "查看詳細資訊";
 "Hide Details" = "收起詳細資訊";
+"Show as List" = "以列表顯示";
+"Show as Grid" = "以網格顯示";
 "%lld of %lld sources responded" = "%lld / %lld 個來源已回應";
 "First-time setup can take a few minutes. Keep the app open." = "首次準備可能需要幾分鐘，請保持 App 開啟。";
 "This source requires Android features that the plugin runtime does not support yet." = "此來源依賴外掛執行環境尚未支援的 Android 功能。";
@@ -527,6 +529,7 @@
 "Storage" = "儲存空間";
 "%@ free" = "可用 %@";
 "used by downloads" = "已被下載佔用";
+"%@ used by downloads" = "下載已佔用 %@";
 "Other" = "其他";
 "Free" = "可用";
 "tvOS may remove downloads when Apple TV runs low on storage." = "Apple TV 儲存空間不足時，tvOS 可能會刪除下載內容。";
@@ -616,6 +619,13 @@
 "Manage Sources" = "管理隨選來源";
 "Hidden Sources" = "已隱藏的來源";
 "Hidden" = "已隱藏";
+"Hide or Show Sources" = "隱藏或顯示來源";
+"%lld hidden" = "已隱藏 %lld 個";
+"Choose many sources at once, or a whole subscription." = "一次選擇多個來源，或整個訂閱。";
+"Ticked sources are shown. Hidden sources stay out of Watch Now and search." = "勾選的來源會顯示。已隱藏的來源不會出現在「立即觀看」和搜尋中。";
+"Show All Sources" = "顯示全部來源";
+"Show All" = "全部顯示";
+"Hide All" = "全部隱藏";
 "Pinned Sources" = "置頂點播來源";
 "Search history" = "搜尋播放歷史";
 "Manage history" = "管理歷史";
@@ -838,6 +848,7 @@
 "Choose your tabs and their order." = "選擇要顯示的標籤及其順序。";
 "Drag to reorder. Up to four sections fit in the tab bar; the rest stay in More." = "拖移即可調整順序。標籤列最多放四項，其餘的留在「更多」中。";
 "Drag to reorder. Up to seven sections fit in the tab bar here, and four when the phone is closed; the rest stay in More." = "拖移即可調整順序。這裡的標籤列最多放七項，闔上時放四項，其餘的留在「更多」中。";
+"Drag to reorder. The tab bar and the sidebar show sections in this order." = "拖移即可調整順序。標籤列和側邊欄會按這個順序顯示。";
 "Add" = "新增";
 "Paste the address of a TVBox JSON subscription, an M3U or TXT live playlist, or an AList server." = "貼上 TVBox JSON 訂閱網址、M3U / TXT 直播清單網址，或 AList 伺服器網址。";
 "Up to Date" = "已是最新";
@@ -1034,6 +1045,7 @@
 "Touch and Hold Speed" = "長按倍速";
 "Touch and hold the video to play at this speed. Slide sideways to change it, or slide down to keep it after you let go." = "長按影片畫面以此速度播放。按住時左右滑動可調整倍速，向下滑動可在放開後保持。";
 "Slide sideways to change the speed, or down to keep it" = "左右滑動調整倍速，向下滑動鎖定";
+"Slowed down to keep up with the connection" = "網速跟不上，已自動降低倍速";
 "Back to Normal Speed" = "恢復正常速度";
 "%lld s" = "%lld 秒";
 "Brightness" = "亮度";
@@ -1381,3 +1393,29 @@
 "None of your LX Music sources plays this song's catalog." = "你加入的洛雪音源都不支援這首歌所在的曲庫。";
 "This extension asks an LX Music source for something Yingxia doesn't support." = "這個擴充向洛雪音源請求的內容映匣尚不支援。";
 "Scripts in the Listenify music extension format. Their charts and playlists show on the Music page and their songs in Music search; songs play from what the extension gives, or through your LX Music sources when it asks for one. Yingxia includes none: add only extensions you trust." = "Listenify 格式的音樂擴充腳本。它們的榜單和歌單顯示在音樂頁，歌曲出現在音樂搜尋中；歌曲從擴充給出的位址播放，擴充需要時也會透過你的洛雪音源播放。映匣不內建任何擴充：只加入你信任的擴充。";
+"Douban Hot Lists" = "豆瓣熱門";
+"Douban Hot Movies" = "豆瓣熱門電影";
+"Douban Hot Series" = "豆瓣熱門劇集";
+"Douban Hot Variety Shows" = "豆瓣熱門綜藝";
+"Douban" = "豆瓣";
+
+"%@ (Translated from %@)" = "%@（譯自%@）";
+
+"Airing Schedule" = "播出時間表";
+"Anime" = "動畫";
+"Nothing Airing" = "當天沒有播出";
+"Couldn't load the airing schedule." = "無法載入播出時間表。";
+"Data:" = "資料來源：";
+"The schedule sources can't be reached right now, so this is an older copy." = "暫時無法連接時間表來源，以下為較早的版本。";
+"Full Schedule" = "完整時間表";
+"Chinese Series" = "陸劇";
+"Hong Kong & Taiwan Series" = "港台劇";
+"American Series" = "美劇";
+"Japanese Series" = "日劇";
+"Korean Series" = "韓劇";
+"British Series" = "英劇";
+"Today" = "今天";
+"Airs Next" = "即將播出";
+"Anime Airing Today" = "今日番劇";
+"Series Airing Today" = "今日劇集";
+"Day" = "日期";

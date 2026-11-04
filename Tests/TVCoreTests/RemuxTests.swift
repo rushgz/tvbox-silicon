@@ -295,6 +295,30 @@ import VideoToolbox
         #expect(group?.options.map(\.displayName).contains("Chinese") == true && group?.options.count == 2)
     }
 
+    @Test func foreignSubtitlesGetATranslatedTwin() async throws {
+        let srt = RangeServer.add("film-\(UUID().uuidString).srt", Data("1\n00:00:07,000 --> 00:00:07,500\nWe have to leave before dawn, nobody knows the way.\n".utf8))
+        let url = try await Remux.open(try Remux.fileSource(fixture("remux-copy.mkv")), subtitles: [ExternalSubtitle(name: "film.srt", url: srt)],
+                                       headers: [:], session: RangeServer.session, translator: FakeTranslator())
+        defer { Remux.stop(url) }
+        let master = String(decoding: try await fetch(url), as: UTF8.self)
+        // The file's English track gets one. The untagged file is English by its words, so it adds none.
+        let twins = master.components(separatedBy: "\n").filter { $0.contains("AUTOSELECT=NO") }
+        #expect(twins.count == 1 && twins.first?.contains(#"URI="5.m3u8""#) == true)
+        let first = String(decoding: try await fetch(url.deletingLastPathComponent().appending(path: "5-0.vtt")), as: UTF8.self)
+        #expect(first.contains("00:00:00.500 --> 00:00:02.000\n译&lt;Hello &amp; welcome&gt;"))
+        let second = String(decoding: try await fetch(url.deletingLastPathComponent().appending(path: "5-1.vtt")), as: UTF8.self)
+        #expect(second.contains("译&lt;Second") && !second.contains("Hello"))
+        // The track it translates is served as it was, and AVFoundation lists the twin with the others.
+        let original = String(decoding: try await fetch(url.deletingLastPathComponent().appending(path: "3-0.vtt")), as: UTF8.self)
+        #expect(original.contains("<i>Hello</i> &amp; welcome"))
+        let group = try await AVURLAsset(url: url).loadMediaSelectionGroup(for: .legible)
+        #expect(group?.options.count == 3)
+        // Without a translator nothing changes.
+        let plain = try await Remux.open(try Remux.fileSource(fixture("remux-copy.mkv")), subtitles: [], headers: [:], session: RangeServer.session, translator: nil)
+        defer { Remux.stop(plain) }
+        #expect(!String(decoding: try await fetch(plain), as: UTF8.self).contains("AUTOSELECT=NO"))
+    }
+
     @Test func picturesAVPlayerCantDecodeAreRepackagedWhenThatShowsThem() {
         #expect(Remux.showsPicture(["hev1"]) && Remux.showsPicture(["dvhe"]) && Remux.showsPicture(["vp09"]))
         #expect(!Remux.showsPicture([]) && !Remux.showsPicture(["av01"]) && !Remux.showsPicture(["hev1", "av01"]))
@@ -383,6 +407,34 @@ import VideoToolbox
         defer { Remux.stop(master) }
         let played = await ready(master)
         #expect(played.status == .readyToPlay && abs(played.duration - 8) < 0.2)
+    }
+
+    /// A drive's slow stretch uses up AVPlayer's own buffer, and segments made one at a time as it asked then came
+    /// too late (issue #437). They are made ahead, and AVPlayer catching up with them doesn't start the one being
+    /// made again, which would read its part of the file twice.
+    @Test func segmentsAreMadeAheadOfAVPlayer() async throws {
+        let source = TricklingSource(try Remux.fileSource(fixture("remux-long.mkv")))
+        let url = try await Remux.open(source)
+        defer { Remux.stop(url) }
+        let folder = url.deletingLastPathComponent()
+        #expect(try await playlist(url, track: 0).segments.count >= 8)
+        _ = try await fetch(folder.appending(path: "0-0.m4s"))
+        source.watch()
+        // AVPlayer asks for the next segments while later ones are being made.
+        for _ in 0..<100 where source.furthest < source.length * 4 / 10 { try await Task.sleep(for: .milliseconds(20)) }
+        for index in 1...3 { _ = try await fetch(folder.appending(path: "0-\(index).m4s")) }
+        for _ in 0..<100 where source.furthest < source.length * 9 / 10 { try await Task.sleep(for: .milliseconds(50)) }
+        #expect(source.furthest >= source.length * 9 / 10)
+        #expect(Remux.session(url)?.abandoned == 0)
+    }
+
+    @Test func segmentsAreMadeAheadForAMinute() {
+        let bounds = (0...600).map { Int64($0) * 6_000_000 }
+        #expect(RemuxSession.makesAhead(1, latest: 0, bounds: bounds))
+        #expect(RemuxSession.makesAhead(10, latest: 0, bounds: bounds))
+        #expect(!RemuxSession.makesAhead(11, latest: 0, bounds: bounds))
+        #expect(RemuxSession.makesAhead(110, latest: 100, bounds: bounds) && !RemuxSession.makesAhead(111, latest: 100, bounds: bounds))
+        #expect(RemuxSession.makesAhead(600, latest: 599, bounds: bounds))
     }
 
     /// The segments a track's playlist lists, and how long they run together.
@@ -501,8 +553,9 @@ import VideoToolbox
         #expect(segments[1].key?.iv == Data(repeating: 0, count: 15) + Data([42]))
         #expect(segments[2].key == nil)
         #expect(HLSRemux.iv(258) == Data(repeating: 0, count: 14) + Data([1, 2]))
-        // Live, fragmented MP4 and SAMPLE-AES are left to AVPlayer.
-        #expect(HLSRemux.segments(text.replacingOccurrences(of: "#EXT-X-ENDLIST", with: ""), base: base) == nil)
+        // A live playlist is read as well (#361); fragmented MP4 and SAMPLE-AES are left to AVPlayer.
+        #expect(HLSRemux.segments(text.replacingOccurrences(of: "#EXT-X-ENDLIST", with: ""), base: base) == segments)
+        #expect(HLSRemux.targetDuration("#EXTM3U\n#EXT-X-TARGETDURATION:6\n#EXTINF:5.5,\na.ts") == 6)
         #expect(HLSRemux.segments("#EXTM3U\n#EXT-X-MAP:URI=\"i.mp4\"\n#EXTINF:1,\na.m4s\n#EXT-X-ENDLIST", base: base) == nil)
         #expect(HLSRemux.segments("#EXTM3U\n#EXT-X-KEY:METHOD=SAMPLE-AES,URI=\"k\"\n#EXTINF:1,\na.ts\n#EXT-X-ENDLIST", base: base) == nil)
     }
@@ -525,6 +578,69 @@ import VideoToolbox
         let played = await picture(master)
         #expect(played.status == .readyToPlay && abs(played.duration - 4) < 0.2)
         #expect(played.size == CGSize(width: 320, height: 180) && played.video)
+    }
+
+    /// A live channel's HEVC in MPEG-TS (an IPTV channel in 4K, #361). The repackaged playlist stays live and follows
+    /// the source's as AVPlayer reloads it: segments keep their names as the window moves, a discontinuity's
+    /// initialization segment outlasts the segment it began with, and a gap in the media sequence begins one.
+    @Test func liveHEVCInTransportStreamFollowsItsPlaylist() async throws {
+        let prefix = "live-\(UUID().uuidString)"
+        for index in 0..<2 { _ = RangeServer.add("\(prefix)-\(index).ts", try Data(contentsOf: fixture("remux-hevc-ts-\(index).ts"))) }
+        // The two clips over and over; each time the first comes back, its clock starts again.
+        func source(_ sequence: Int, _ names: [Int]) -> URL {
+            let lines = ["#EXTM3U", "#EXT-X-VERSION:3", "#EXT-X-TARGETDURATION:2", "#EXT-X-MEDIA-SEQUENCE:\(sequence)"]
+                + names.enumerated().flatMap { index, name in
+                    (index > 0 && name == 0 ? ["#EXT-X-DISCONTINUITY"] : []) + ["#EXTINF:2.000000,", "\(prefix)-\(name).ts"]
+                }
+            return RangeServer.add("\(prefix).m3u8", Data((lines.joined(separator: "\n") + "\n").utf8))
+        }
+        let master = try await HLSRemux.open(source(100, [0, 1, 0, 1]), headers: [:], network: RangeServer.session)
+        defer { Remux.stop(master) }
+        let folder = master.deletingLastPathComponent()
+        func text(_ file: String) async throws -> String { String(decoding: try await fetch(folder.appending(path: file)), as: UTF8.self) }
+        func moved(_ sequence: Int, _ names: [Int]) async throws -> String {
+            _ = source(sequence, names)
+            try await Task.sleep(for: .milliseconds(1100))
+            return try await text("0.m3u8")
+        }
+        var video = try await text("0.m3u8")
+        #expect(video.hasSuffix("""
+        #EXT-X-TARGETDURATION:2
+        #EXT-X-MEDIA-SEQUENCE:0
+        #EXT-X-DISCONTINUITY-SEQUENCE:0
+        #EXT-X-MAP:URI="0-0.mp4"
+        #EXTINF:2.000000,
+        0-0.m4s
+        #EXTINF:2.000000,
+        0-1.m4s
+        #EXT-X-DISCONTINUITY
+        #EXT-X-MAP:URI="0-2.mp4"
+        #EXTINF:2.000000,
+        0-2.m4s
+        #EXTINF:2.000000,
+        0-3.m4s
+
+        """), "\(video)")
+        // Repackaged, AVPlayer shows the live picture.
+        let played = await picture(master)
+        #expect(played.status == .readyToPlay && played.size == CGSize(width: 320, height: 180) && played.video, "\(played)")
+
+        // One segment joins and two leave: names stay as they were.
+        video = try await moved(102, [0, 1, 0])
+        #expect(video.contains("#EXT-X-MEDIA-SEQUENCE:2\n#EXT-X-DISCONTINUITY-SEQUENCE:0\n#EXT-X-DISCONTINUITY\n#EXT-X-MAP:URI=\"0-2.mp4\"\n#EXTINF:2.000000,\n0-2.m4s\n"), "\(video)")
+        #expect(video.hasSuffix("0-3.m4s\n#EXT-X-DISCONTINUITY\n#EXT-X-MAP:URI=\"0-4.mp4\"\n#EXTINF:2.000000,\n0-4.m4s\n"), "\(video)")
+        // The discontinuity's first segment leaves; its initialization segment stays, and is counted.
+        video = try await moved(103, [1, 0])
+        #expect(video.contains("#EXT-X-MEDIA-SEQUENCE:3\n#EXT-X-DISCONTINUITY-SEQUENCE:1\n#EXT-X-MAP:URI=\"0-2.mp4\"\n#EXTINF:2.000000,\n0-3.m4s\n"), "\(video)")
+        #expect(RemuxPlan.box("hvcC", in: try await fetch(folder.appending(path: "0-2.mp4"))) != nil)
+        #expect(try await text("1.m3u8").contains("1-3.m4s"))
+        // Sequences 105 and 106 were missed: the next segment begins a discontinuity of its own.
+        video = try await moved(107, [1])
+        #expect(video.contains("#EXT-X-MEDIA-SEQUENCE:5\n#EXT-X-DISCONTINUITY-SEQUENCE:2\n#EXT-X-DISCONTINUITY\n#EXT-X-MAP:URI=\"0-5.mp4\"\n#EXTINF:2.000000,\n0-5.m4s\n"), "\(video)")
+        for file in ["0-5.mp4", "0-5.m4s", "1-5.m4s"] {
+            let data = try await fetch(folder.appending(path: file))
+            #expect(data.count > 8 && data.subdata(in: 4..<8) == Data((file.hasSuffix("mp4") ? "ftyp" : "moof").utf8), "\(file)")
+        }
     }
 
     /// Segments disguised behind an image header, AES-128 encrypted (the IV from the media sequence), and an advert's
@@ -575,7 +691,7 @@ import VideoToolbox
         _ = RangeServer.add("\(name).ts", try Data(contentsOf: fixture("remux-h264.ts")))
         let url = RangeServer.add("\(name).m3u8", Data("#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXTINF:0.2,\n\(name).ts\n#EXT-X-ENDLIST\n".utf8))
         await #expect(throws: (any Error).self) { try await HLSRemux.open(url, headers: [:], network: RangeServer.session) }
-        // A live stream isn't repackaged either.
+        // Nor is a live one.
         let live = RangeServer.add("live-\(name).m3u8", Data("#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXTINF:0.2,\n\(name).ts\n".utf8))
         await #expect(throws: (any Error).self) { try await HLSRemux.open(live, headers: [:], network: RangeServer.session) }
     }
@@ -597,4 +713,27 @@ import VideoToolbox
         try #require(status == kCCSuccess)
         return output.prefix(moved)
     }
+}
+
+/// A file read slowly and a little at a time, like a drive in a slow stretch. After `watch` it notes how far it was
+/// read.
+private final class TricklingSource: RemuxSource, @unchecked Sendable {
+    private let file: RemuxSource
+    private let lock = NSLock()
+    private var end: Int64 = 0
+    private var watching = false
+    init(_ file: RemuxSource) { self.file = file }
+    var length: Int64 { file.length }
+    var transfer: (received: Int64, host: String?)? { nil }
+    var furthest: Int64 { lock.withLock { end } }
+    func watch() { lock.withLock { watching = true } }
+
+    func read(at offset: Int64, count: Int) async throws -> Data {
+        try await Task.sleep(for: .milliseconds(150))
+        let data = try await file.read(at: offset, count: min(count, 8192))
+        lock.withLock { if watching { end = max(end, offset + Int64(data.count)) } }
+        return data
+    }
+
+    func close() async { await file.close() }
 }

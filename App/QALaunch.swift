@@ -55,10 +55,13 @@ enum QALaunch {
                 if size.count == 2 { NSApp.windows.first { $0.isVisible }?.setContentSize(NSSize(width: size[0], height: size[1])) }
                 let delay = UserDefaults.standard.object(forKey: "qaSnapshotDelay") == nil ? 20 : UserDefaults.standard.double(forKey: "qaSnapshotDelay")
                 try? await Task.sleep(for: .seconds(delay))
-                guard let view = NSApp.windows.first(where: { $0.isVisible })?.contentView?.superview,
-                      let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
-                view.cacheDisplay(in: view.bounds, to: rep)
-                try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
+                // The main window into the path; each other visible window (a sheet, a popover) beside it as <path>-1.png, -2…
+                for (index, window) in NSApp.windows.filter(\.isVisible).enumerated() {
+                    guard let view = window.contentView?.superview, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { continue }
+                    view.cacheDisplay(in: view.bounds, to: rep)
+                    let file = index == 0 ? path : (path as NSString).deletingPathExtension + "-\(index).png"
+                    try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: file))
+                }
             }
         }
         #endif
@@ -106,8 +109,8 @@ enum QALaunch {
         // `-qaPlayLive [<platform>:]<room>` opens a live room (Bilibili by default) in the player.
         if let target = UserDefaults.standard.string(forKey: "qaPlayLive") {
             let parts = target.split(separator: ":", maxSplits: 1).map(String.init)
-            let platform = parts.count == 2 ? LivePlatform(rawValue: parts[0]) ?? .bilibili : .bilibili
-            if let room = parts.last, let url = URL(string: "\(platform.scheme)://room/\(room)") {
+            if let platform = LivePlatform(rawValue: parts.count == 2 ? parts[0] : "bilibili"), let room = parts.last,
+               let url = URL(string: "\(platform.scheme)://room/\(room)") {
                 store.playing = Channel(name: "Live \(room)", group: platform.name, url: url)
             }
         }
@@ -278,7 +281,7 @@ enum QALaunch {
                     DouyinHandoffView(link: link)
                 }
             #endif
-            case "bilibili-live": LivePlatformView(platform: .bilibili)
+            case "bilibili-live": if let platform = LivePlatform(rawValue: "bilibili") { LivePlatformView(platform: platform) }
             // `-qaPage live:<douyu|huya|douyin|bilibili>`, with `-qaQuery <text>` to show its search.
             case "live":
                 if let platform = parts.dropFirst().first.flatMap(LivePlatform.init(rawValue:)) {

@@ -62,6 +62,10 @@ struct RootView: View {
         return sections
     }
     private var sections: [AppSection] {
+        #if os(iOS)
+        // The iPad's sidebar, in the order set in Settings > Edit Tab Bar (#427).
+        return PhoneTabs.sidebar(stored: storedTabs, hiding: store.hiddenSections)
+        #else
         let sections = [AppSection.home, .discover, .live, .music, .search, .sites, .files, .history, .favorites, .downloads, .settings]
             .filter { !store.hiddenSections.contains($0) }
         #if os(tvOS)
@@ -70,6 +74,7 @@ struct RootView: View {
         if store.music.track != nil, !MusicSidebarNowPlaying.inSidebarHeader { return [.nowPlaying] + sections }
         #endif
         return sections
+        #endif
     }
     #if os(tvOS)
     /// tvOS 17 has no sidebar, only the tab bar along the top, and selecting its eighth or a later tab does
@@ -356,7 +361,9 @@ private struct PlayerPresentation: ViewModifier {
         // An iPhone watch page plays its own video at the top of the page (`VideoDetailView`).
         content.fullScreenCover(item: Binding(get: { store.playsInWatchPage(playing) ? nil : playing.map(PlayerSlot.init) },
                                               set: { if $0 == nil, !store.playsInWatchPage(playing) { playing = nil } })) { trackedValue0 in PerceptionView {
-            PlaybackView(channel: trackedValue0.channel)
+            // Handed in: the iPad app on a Mac presents a full-screen cover without the presenter's environment
+            // objects, and every video stopped the app there ("No Observable object of type Store found").
+            PlaybackView(channel: trackedValue0.channel).environment(store)
         } }
         #endif
     } }

@@ -20,6 +20,11 @@ public protocol RemuxSource: Sendable {
 final class RemuxSession: @unchecked Sendable {
     /// Added to every output time, so audio priming and reordered video never start before zero.
     static let offset: Int64 = 10_000_000
+    /// How far past the segment AVPlayer asked for last the file is repackaged before it asks. A drive's slow
+    /// stretches use up AVPlayer's own buffer, and segments made one at a time as it asked then came too late:
+    /// it gave up on them ("No response for media file", HTTP 500) and stalled (issue #437). The segments made
+    /// ahead stay within half the memory budget that already holds the ones played.
+    static let ahead: Int64 = 60_000_000
     let id = UUID().uuidString.lowercased()
     let source: RemuxSource
     private(set) var plan: RemuxPlan!
@@ -29,6 +34,14 @@ final class RemuxSession: @unchecked Sendable {
     private(set) var format = ""
     /// The cues of the subtitle files added after the file's own tracks, by track.
     private var external: [Int: [RemuxPlan.Cue]] = [:]
+    /// The translated twins of subtitle tracks (`SubtitleTranslation`), by track.
+    private var translations: [Int: Translation] = [:]
+    /// Their segments, made once: translating costs more than repackaging.
+    private var translated: [Key: RemuxSegment] = [:]
+    /// The cues of the file's own subtitles that twins translate, by segment, kept when the segment is made.
+    private var sourceCues: [Key: [RemuxPlan.Cue]] = [:]
+    private var translationFailed = false
+    private struct Translation { var source: Int, language: Locale.Language, translator: any SubtitleTranslating }
     private var codecs: [Int: String] = [:]
     private var startTime: Int64 = 0
 
@@ -42,6 +55,8 @@ final class RemuxSession: @unchecked Sendable {
     private var closed = false
     private var produced: Int?
     private let budget: Int
+    /// Segments given up part-way for another one AVPlayer asked for.
+    private(set) var abandoned = 0
 
     private struct Key: Hashable { var track: Int, segment: Int }
 
@@ -88,6 +103,30 @@ final class RemuxSession: @unchecked Sendable {
         Diagnostics.shared.record(.info, "remux", "subtitle files=\(files.count) cues=\(files.map(\.cues.count))")
     }
 
+    /// Adds a translated twin of each foreign-language text subtitle the translator handles, before the stream is
+    /// served. A subtitle file without a language tag is known by its words.
+    func addTranslations(_ translator: any SubtitleTranslating) async {
+        let (tracks, files) = condition.withLock { (plan.tracks, external) }
+        let target = translator.target
+        var detected: [Int: Locale.Language] = [:]
+        for (track, cues) in files where RemuxPlan.languageTag(tracks[track].stream.language) == nil {
+            detected[track] = SubtitleTranslation.detect(cues)
+        }
+        var sources: [(track: Int, language: Locale.Language)] = []
+        for source in SubtitleTranslation.sources(tracks, detected: detected, target: target) where await translator.supports(source.language) {
+            sources.append(source)
+        }
+        guard !sources.isEmpty else { return }
+        condition.withLock {
+            for (track, source) in zip(plan.addTranslations(sources, target: target), sources) {
+                translations[track] = Translation(source: source.track, language: source.language, translator: translator)
+                playlists[track] = plan.mediaPlaylist(track: track)
+            }
+            master = plan.masterPlaylist(codecs: codecs, supplemental: initializations[0].flatMap(plan.supplementalCodec))
+        }
+        Diagnostics.shared.record(.info, "subtitles", "translations offered to=\(target.minimalIdentifier) from=\(sources.map { "\($0.track):\($0.language.minimalIdentifier)" })")
+    }
+
     /// The segment's bytes as they are written. The caller reads it and then calls `leave`.
     func segment(track: Int, index: Int) -> RemuxSegment? {
         guard let plan, plan.tracks.indices.contains(track), (0..<plan.segments).contains(index), plan.tracks[track].kind != .other else { return nil }
@@ -102,16 +141,65 @@ final class RemuxSession: @unchecked Sendable {
             return segment
         }
         let key = Key(track: track, segment: index)
+        if let translation = translations[track] { return translatedSegment(key, translation) }
         let segment: RemuxSegment
         if let existing = segments[key], existing.state != .failed { segment = existing }
         else { segment = RemuxSegment(); segments[key] = segment }
         segment.join()
         if plan.tracks[track].kind == .audio { asked[track] = Date() }
         latest = index
-        // A segment no one waits for gives way to this one.
-        if let producing, producing != index, !segments.contains(where: { $0.key.segment == producing && $0.value.readers > 0 }) { abandon = true }
+        // A segment no one waits for gives way to this one, unless this one is made already: AVPlayer catching up
+        // with the segments made ahead doesn't throw away the one being made.
+        if let producing, producing != index, segment.state != .done, !segments.contains(where: { $0.key.segment == producing && $0.value.readers > 0 }) { abandon = true }
         condition.broadcast()
         return segment
+    }
+
+    /// A twin's segment: its source's cues for the segment, translated. Made once; one whose translation failed is
+    /// served as it was and translated again when asked for again. Called with the lock held.
+    private func translatedSegment(_ key: Key, _ translation: Translation) -> RemuxSegment {
+        if let existing = translated[key], existing.state != .failed { existing.join(); return existing }
+        let segment = RemuxSegment()
+        segment.join()
+        translated[key] = segment
+        Task { [self] in
+            guard let cues = await cues(track: translation.source, segment: key.segment) else {
+                condition.withLock { translated[key] = nil }
+                segment.fail()
+                return
+            }
+            let began = Date()
+            let result = await SubtitleTranslation.translate(cues, from: translation.language, with: translation.translator)
+            segment.append(Data(RemuxPlan.webVTT(result.cues, offset: Self.offset).utf8))
+            // The first failure is logged; later ones are most likely the same.
+            let report = condition.withLock { () -> Bool in
+                guard !result.translated else { return false }
+                translated[key] = nil
+                defer { translationFailed = true }
+                return !translationFailed
+            }
+            segment.finish()
+            if let error = result.error {
+                if report { Diagnostics.shared.record(.warning, "subtitles", "translation failed segment=\(key.segment) \(error)") }
+            } else if !cues.isEmpty {
+                Diagnostics.shared.record(.debug, "subtitles", "translated segment=\(key.segment) cues=\(cues.count) ms=\(Int(Date().timeIntervalSince(began) * 1000))")
+            }
+        }
+        return segment
+    }
+
+    /// A subtitle track's cues for one segment; nil when the segment can't be made.
+    private func cues(track: Int, segment index: Int) async -> [RemuxPlan.Cue]? {
+        let key = Key(track: track, segment: index)
+        if let cues = condition.withLock({ external[track].map { plan.cues($0, segment: index) } ?? sourceCues[key] }) { return cues }
+        // The file's own: made with the picture, else now.
+        guard let segment = segment(track: track, index: index) else { return nil }
+        defer { leave(segment) }
+        var offset = 0
+        do {
+            while let bytes = try await segment.next(after: offset, cancelled: { false }) { offset += bytes.count }
+        } catch { return nil }
+        return condition.withLock { sourceCues[key] } ?? []
     }
 
     func leave(_ segment: RemuxSegment) {
@@ -225,7 +313,7 @@ final class RemuxSession: @unchecked Sendable {
             abandon = false
             let waited = segments.filter { $0.value.state == .waiting && $0.value.readers > 0 }.min { $0.value.created < $1.value.created }?.key.segment
             var index = waited
-            if index == nil, let produced, produced + 1 < plan.segments, produced + 1 <= latest + 1, storedBytes < budget { index = produced + 1 }
+            if index == nil, let produced, produced + 1 < plan.segments, makesAhead(produced + 1), storedBytes < budget { index = produced + 1 }
             if let index {
                 if let job = job(index) { producing = index; return job }
                 continue
@@ -236,6 +324,19 @@ final class RemuxSession: @unchecked Sendable {
 
     private var storedBytes: Int { segments.values.reduce(0) { $0 + $1.count } }
 
+    /// Whether segment `next` is made before AVPlayer asks for it. The ones made past the segment it asked for
+    /// last stay within half the budget, so keeping the budget evicts segments already played, not these.
+    private func makesAhead(_ next: Int) -> Bool {
+        guard Self.makesAhead(next, latest: latest, bounds: plan.bounds) else { return false }
+        return segments.filter { $0.key.segment > latest }.reduce(0) { $0 + $1.value.count } < budget / 2
+    }
+
+    /// Whether segment `next` begins less than `ahead` after the end of segment `latest`; the one right after
+    /// it always does.
+    static func makesAhead(_ next: Int, latest: Int, bounds: [Int64]) -> Bool {
+        next <= latest + 1 || bounds[next] < bounds[min(latest + 1, bounds.count - 1)] + ahead
+    }
+
     /// The tracks a segment is made for: those asked for, the picture, the audio AVPlayer plays, the subtitles
     /// (which cost nothing). Tracks it already has are left out.
     private func job(_ index: Int) -> Job? {
@@ -243,7 +344,7 @@ final class RemuxSession: @unchecked Sendable {
         let recent = asked.filter { Date().timeIntervalSince($0.value) < 30 }.map(\.key)
         let audio = recent.isEmpty ? [plan.defaultAudio].compactMap { $0 } : recent
         writing = [:]
-        for (track, kind) in plan.tracks.map(\.kind).enumerated() where external[track] == nil {
+        for (track, kind) in plan.tracks.map(\.kind).enumerated() where external[track] == nil && translations[track] == nil {
             let key = Key(track: track, segment: index)
             let existing = segments[key]
             let wanted = existing?.readers ?? 0 > 0 || kind == .video || kind == .subtitle || audio.contains(track)
@@ -272,12 +373,14 @@ final class RemuxSession: @unchecked Sendable {
         }
         condition.lock()
         let gaveWay = abandon || closed
+        if status < 0, abandon, !closed { abandoned += 1 }
         producing = nil
         for (track, segment) in writing {
             let key = Key(track: track, segment: index)
             if status >= 0 {
                 if plan.tracks[track].kind == .subtitle {
                     segment.append(Data(RemuxPlan.webVTT(cues[track] ?? [], offset: Self.offset).utf8))
+                    if translations.values.contains(where: { $0.source == track }) { sourceCues[key] = cues[track] ?? [] }
                 }
                 segment.finish()
             } else if gaveWay {

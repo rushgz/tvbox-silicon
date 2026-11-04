@@ -380,6 +380,8 @@
 "Try another keyword." = "Try another keyword.";
 "Show Details" = "Show Details";
 "Hide Details" = "Hide Details";
+"Show as List" = "Show as List";
+"Show as Grid" = "Show as Grid";
 "%lld of %lld sources responded" = "%lld of %lld sources responded";
 "First-time setup can take a few minutes. Keep the app open." = "First-time setup can take a few minutes. Keep the app open.";
 "This source requires Android features that the plugin runtime does not support yet." = "This source requires Android features that the plugin runtime does not support yet.";
@@ -528,6 +530,7 @@
 "Storage" = "Storage";
 "%@ free" = "%@ free";
 "used by downloads" = "used by downloads";
+"%@ used by downloads" = "%@ used by downloads";
 "Other" = "Other";
 "Free" = "Free";
 "tvOS may remove downloads when Apple TV runs low on storage." = "tvOS may remove downloads when Apple TV runs low on storage.";
@@ -617,6 +620,13 @@
 "Manage Sources" = "Manage Sources";
 "Hidden Sources" = "Hidden Sources";
 "Hidden" = "Hidden";
+"Hide or Show Sources" = "Hide or Show Sources";
+"%lld hidden" = "%lld hidden";
+"Choose many sources at once, or a whole subscription." = "Choose many sources at once, or a whole subscription.";
+"Ticked sources are shown. Hidden sources stay out of Watch Now and search." = "Ticked sources are shown. Hidden sources stay out of Watch Now and search.";
+"Show All Sources" = "Show All Sources";
+"Show All" = "Show All";
+"Hide All" = "Hide All";
 "Pinned Sources" = "Pinned Sources";
 "Search history" = "Search history";
 "Manage history" = "Manage history";
@@ -839,6 +849,7 @@
 "Choose your tabs and their order." = "Choose your tabs and their order.";
 "Drag to reorder. Up to four sections fit in the tab bar; the rest stay in More." = "Drag to reorder. Up to four sections fit in the tab bar; the rest stay in More.";
 "Drag to reorder. Up to seven sections fit in the tab bar here, and four when the phone is closed; the rest stay in More." = "Drag to reorder. Up to seven sections fit in the tab bar here, and four when the phone is closed; the rest stay in More.";
+"Drag to reorder. The tab bar and the sidebar show sections in this order." = "Drag to reorder. The tab bar and the sidebar show sections in this order.";
 "Add" = "Add";
 "Paste the address of a TVBox JSON subscription, an M3U or TXT live playlist, or an AList server." = "Paste the address of a TVBox JSON subscription, an M3U or TXT live playlist, or an AList server.";
 "Up to Date" = "Up to Date";
@@ -1035,6 +1046,7 @@
 "Touch and Hold Speed" = "Touch and Hold Speed";
 "Touch and hold the video to play at this speed. Slide sideways to change it, or slide down to keep it after you let go." = "Touch and hold the video to play at this speed. Slide sideways to change it, or slide down to keep it after you let go.";
 "Slide sideways to change the speed, or down to keep it" = "Slide sideways to change the speed, or down to keep it";
+"Slowed down to keep up with the connection" = "Slowed down to keep up with the connection";
 "Back to Normal Speed" = "Back to Normal Speed";
 "%lld s" = "%lld s";
 "Brightness" = "Brightness";
@@ -1381,3 +1393,29 @@
 "None of your LX Music sources plays this song's catalog." = "None of your LX Music sources plays this song's catalog.";
 "This extension asks an LX Music source for something Yingxia doesn't support." = "This extension asks an LX Music source for something Yingxia doesn't support.";
 "Scripts in the Listenify music extension format. Their charts and playlists show on the Music page and their songs in Music search; songs play from what the extension gives, or through your LX Music sources when it asks for one. Yingxia includes none: add only extensions you trust." = "Scripts in the Listenify music extension format. Their charts and playlists show on the Music page and their songs in Music search; songs play from what the extension gives, or through your LX Music sources when it asks for one. Yingxia includes none: add only extensions you trust.";
+"Douban Hot Lists" = "Douban Hot Lists";
+"Douban Hot Movies" = "Douban Hot Movies";
+"Douban Hot Series" = "Douban Hot Series";
+"Douban Hot Variety Shows" = "Douban Hot Variety Shows";
+"Douban" = "Douban";
+
+"%@ (Translated from %@)" = "%@ (Translated from %@)";
+
+"Airing Schedule" = "Airing Schedule";
+"Anime" = "Anime";
+"Nothing Airing" = "Nothing Airing";
+"Couldn't load the airing schedule." = "Couldn't load the airing schedule.";
+"Data:" = "Data:";
+"The schedule sources can't be reached right now, so this is an older copy." = "The schedule sources can't be reached right now, so this is an older copy.";
+"Full Schedule" = "Full Schedule";
+"Chinese Series" = "Chinese Series";
+"Hong Kong & Taiwan Series" = "Hong Kong & Taiwan Series";
+"American Series" = "American Series";
+"Japanese Series" = "Japanese Series";
+"Korean Series" = "Korean Series";
+"British Series" = "British Series";
+"Today" = "Today";
+"Airs Next" = "Airs Next";
+"Anime Airing Today" = "Anime Airing Today";
+"Series Airing Today" = "Series Airing Today";
+"Day" = "Day";

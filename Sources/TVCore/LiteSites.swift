@@ -22,11 +22,13 @@ enum LiteSites {
     /// The bundled script for a `csp_` class, or nil when the class has no enabled port.
     static func script(for api: String) -> URL? {
         guard api.hasPrefix("csp_"), let entry = enabled[String(api.dropFirst(4))] else { return nil }
+        // A port can also be one of Yingxia's own scripts, served with its subscription (`CloudSources`).
+        if entry.script.hasPrefix("https://") { return URL(string: entry.script) }
         return URL(string: "assets://sites/" + entry.script)
     }
 
     /// Why a port's answer counts as unsupported, so the JAR should answer instead; nil when it is usable.
-    /// Search may legitimately find nothing, and later pages may be empty, so neither falls back.
+    /// Search may legitimately find nothing, and later pages or a filtered category may be empty, so none of these falls back.
     static func unusable(_ json: [String: JSONValue], params: [String: String]) -> String? {
         func empty(_ key: String) -> Bool { json[key]?.array?.isEmpty ?? true }
         if params["play"] != nil {
@@ -35,7 +37,7 @@ enum LiteSites {
             return url == nil || url?.string?.isEmpty == true || url?.array?.isEmpty == true ? "no playback URL" : nil
         }
         if params["ids"] != nil { return empty("list") ? "no details" : nil }
-        if params["wd"] != nil { return nil }
+        if params["wd"] != nil || params["filters"] != nil { return nil }
         if let category = params["t"] { return !category.isEmpty && (params["pg"] ?? "1") == "1" && empty("list") ? "no videos" : nil }
         return empty("class") && empty("list") ? "no categories" : nil
     }

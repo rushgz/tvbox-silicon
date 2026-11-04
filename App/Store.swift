@@ -43,6 +43,9 @@ import TVCore
     let favorites: Favorites
     var importing = false
     var error: String?
+    /// Why the last subscription import failed. It shows under the address field, not in the app-wide alert: on
+    /// iPhone and iPad that alert closed the Add Subscription sheet over it and took the viewer out of the form (#357).
+    var importError: String?
     var notice: String?
     var playing: Channel? {
         // An episode of a listening source (audiobooks, radio, songs) plays in the music player instead (#289).
@@ -69,8 +72,15 @@ import TVCore
     private var episodeTask: Task<Void, Never>?
     var section: AppSection = .home
     /// Every build shows the built-in services (Music, Bilibili, Douyin), the default subscription and
-    /// the plugin pages only once a subscription has been added.
-    var extrasUnlocked: Bool { !subscriptions.isEmpty }
+    /// the plugin pages only once a subscription that works has been added: one that is on and whose
+    /// copy has sources or live playlists.
+    var extrasUnlocked: Bool {
+        subscriptions.contains { $0.enabled && documents[$0.address].map { !$0.sites.isEmpty || !$0.lives.isEmpty } == true }
+    }
+    /// Yingxia's own sources (`CloudSources`), added beside the viewer's subscriptions once one works.
+    private(set) var cloudDocument: Subscription?
+    @PerceptionIgnored private var cloudFetchedAt: Date?
+    @PerceptionIgnored private var cloudFetch: Task<Void, Never>?
     /// Sections kept out of the tab bar and sidebar until then.
     var hiddenSections: [AppSection] { extrasUnlocked ? [] : [.music] }
     private let defaults: UserDefaults
@@ -135,6 +145,9 @@ import TVCore
         }
         subscriptions = entries
         documents = copies
+        let cloud = (try? Data(contentsOf: Self.cloudFile)).flatMap { try? JSONDecoder().decode(Subscription.self, from: $0) }.flatMap { CloudSources.accepts($0) ? $0 : nil }
+        cloudDocument = cloud
+        CloudSources.current = cloud
         subscriptionAddress = ""
         if persistsChanges, let legacyAddress {
             if let legacy, copies[legacyAddress] != nil { try? Self.save(legacy, to: Self.file(for: entries[0])) }
@@ -223,7 +236,7 @@ import TVCore
     private func resolveDownload(_ item: DownloadItem) async throws -> Channel {
         let config = subscription
         guard let site = config?.sites.first(where: { $0.key == item.source.siteKey })
-                ?? Site.builtInSites.first(where: { $0.key == item.source.siteKey }) else {
+                ?? cloudDocument?.sites.first(where: { $0.key == item.source.siteKey }) else {
             throw TVError.unsupported(L10n.text("%@ is no longer in your subscription, so this download can't continue.", item.source.siteName))
         }
         let base = CatalogClient(site: site, origin: config?.origin ?? URL(string: "https://example.invalid/")!, jarURL: config?.spiderURL)
@@ -260,6 +273,7 @@ import TVCore
         #endif
     }
     private static var legacyFile: URL { subscriptionDirectory.appending(path: "subscription.json") }
+    private static var cloudFile: URL { subscriptionDirectory.appending(path: "cloud-sources.json") }
     private static func file(for entry: SubscriptionEntry) -> URL {
         subscriptionDirectory.appending(path: "subscriptions").appending(path: entry.cacheName)
     }
@@ -284,7 +298,7 @@ import TVCore
     /// adds every subscription it lists, switched off, for the viewer to choose from.
     func importSubscription(address: String? = nil) async {
         guard !importing else { return }
-        importing = true; error = nil; notice = nil
+        importing = true; importError = nil; notice = nil
         defer { importing = false }
         let typed = (address ?? subscriptionAddress).trimmingCharacters(in: .whitespacesAndNewlines)
         do {
@@ -315,7 +329,7 @@ import TVCore
             rebuildSubscription()
         } catch {
             Diagnostics.shared.failure("subscription", "import host=\((try? WebAddress.resolve(typed))?.host() ?? "-")", error)
-            self.error = L10n.text("Import failed: %@", error.localizedDescription)
+            importError = L10n.text("Import failed: %@", error.localizedDescription)
         }
     }
     /// Adds a subscription, or one spider script, from a file the viewer picked. The file is copied
@@ -325,7 +339,7 @@ import TVCore
         let copied = Result { try ImportedFiles.add(file) }
         if scoped { file.stopAccessingSecurityScopedResource() }
         guard case .success(let url) = copied else {
-            if case .failure(let error) = copied { self.error = L10n.text("Import failed: %@", error.localizedDescription) }
+            if case .failure(let error) = copied { importError = L10n.text("Import failed: %@", error.localizedDescription) }
             return
         }
         let address = url.absoluteString, known = subscriptions.contains { $0.address == address }
@@ -336,9 +350,10 @@ import TVCore
     /// Fetches every enabled subscription again; one that fails keeps its last good copy.
     func refreshSubscriptions() async {
         guard !importing else { return }
-        importing = true; error = nil; notice = nil
+        importing = true; importError = nil; notice = nil
         defer { importing = false }
         await fetch(subscriptions.filter(\.enabled))
+        refreshCloudSources(force: true)
         let failed = subscriptions.filter { $0.enabled && subscriptionErrors[$0.address] != nil }.count
         if failed > 0 { notice = L10n.text("%lld subscriptions could not be refreshed; their last copies stay in use.", failed) }
     }
@@ -471,7 +486,8 @@ import TVCore
     /// Shows every enabled subscription that has a copy, merged in list order.
     private func rebuildSubscription(resetting: Bool = true) {
         if resetting { searchModel.reset(); recommendationModel.reset() }
-        subscription = Subscription.merge(subscriptions.filter(\.enabled).compactMap { documents[$0.address] })?.withBuiltInSites()
+        subscription = Subscription.merge(subscriptions.filter(\.enabled).compactMap { documents[$0.address] })?.withCloudSources(extrasUnlocked ? cloudDocument : nil)
+        refreshCloudSources()
         if let subscription {
             Self.registerPlugins(subscription)
             hiddenSources.restoreBuiltIns(subscription.sites, origin: subscription.origin)
@@ -482,6 +498,30 @@ import TVCore
             let origin = subscription.origin, spider = subscription.spiderURL
             Task { await PluginConversionAhead.shared.schedule(sites: visible, origin: origin, spider: spider) }
             #endif
+        }
+    }
+    /// Fetches Yingxia's own subscription while a subscription works: at once when there is no copy, else
+    /// every ten minutes at most. A failed fetch keeps the last copy.
+    private func refreshCloudSources(force: Bool = false) {
+        guard extrasUnlocked, cloudFetch == nil else { return }
+        if !force, cloudDocument != nil, let fetched = cloudFetchedAt, Date.now.timeIntervalSince(fetched) < 600 { return }
+        let http = http, persists = persistsChanges
+        cloudFetch = Task { [weak self] in
+            let result: Result<Subscription, any Error>
+            do { result = .success(try await CloudSources.fetch(http: http)) } catch { result = .failure(error) }
+            guard let self else { return }
+            self.cloudFetch = nil
+            self.cloudFetchedAt = .now
+            switch result {
+            case .success(let document):
+                if persists, let data = try? JSONEncoder().encode(document) { try? Self.save(data, to: Self.cloudFile) }
+                CloudSources.current = document
+                let changed = (try? JSONEncoder().encode(document.raw)) != (try? JSONEncoder().encode(self.cloudDocument?.raw))
+                self.cloudDocument = document
+                if changed { self.rebuildSubscription() }
+            case .failure(let error):
+                Diagnostics.shared.failure("subscription", "built-in sources", error)
+            }
         }
     }
     private func refreshCloudFilesSources() {
